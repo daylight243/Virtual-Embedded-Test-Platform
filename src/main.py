@@ -1,26 +1,12 @@
+from device import Device
+
 def main():
 
-    print("=" * 40)
-
     print("Virtual Embedded Test Platform")
-
-    print("Builder Edition - Version 1")
-
     print()
 
-    print("Status")
-
-    print("✓ Project Created")
-
-    print("✓ Environment Ready")
-
-    print("✓ Ready to Begin Building")
-
-    print()
-
-    print("Welcome Builder!")
-
-    print("=" * 40)
+    device = Device()
+    device.display_info()
 
 
 if __name__ == "__main__":
