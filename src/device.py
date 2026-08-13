@@ -1,19 +1,44 @@
 class Device:
 
     def __init__(self):
-
         self.device_name = "Power Controller"
-
+        
         self.device_id = "PWR-001"
-
-        self.status = "READY"
-
-        self.voltage = 12.0 
-
-        self.current = 1.5 
-
+        
+        self.state = "OFF"
+        
+        self.voltage = 0.0 
+        
+        self.current = 0.0 
+        
         self.temperature = 25.0
+        
 
+    def start(self):
+             self.state = "STARTUP" 
+             self.voltage = 12.0 
+             self.current = 0.8 
+             self.temperature = 26.0
+
+    def run(self): 
+            self.state = "RUNNING"
+            self.voltage = 12.0 
+            self.current = 1.5 
+            self.temperature = 32.0
+
+    def shutdown(self): 
+            self.state = "SHUTDOWN" 
+            self.voltage = 12.0 
+            self.current = 0.4
+            self.temperature = 29.0
+
+    def turn_off(self): 
+            self.state = "OFF" 
+            self.voltage = 0.0 
+            self.current = 0.0
+            self.temperature = 25.0
+
+        
     def display_info(self):
         power = self.voltage * self.current
 
@@ -23,7 +48,7 @@ class Device:
 
         print(f"Device Name: {self.device_name}")
         print(f"Device ID: {self.device_id}")
-        print(f"Status: {self.status}")
+        print(f"State: {self.state}")
 
         print()
         print("---Measurements---")
