@@ -12,6 +12,9 @@ class Device:
         self.current = 0.0 
         
         self.temperature = 25.0
+
+        self.alarm = False
+        self.faultcode = "NONE"
         
 
     def start(self):
@@ -38,9 +41,32 @@ class Device:
             self.current = 0.0
             self.temperature = 25.0
 
+    def check_faults(self):
+
+        self.alarm = False
+        self.faultcode = "NONE"
+
+        if self.temperature > 70.0:
+            self.alarm = True
+            self.faultcode = "OVERHEAT"
+            return
+        if self.voltage < 10.0:
+            self.alarm = True
+            self.faultcode = "UNDERVOLTAGE"
+            return
+        if self.voltage > 14.0:
+            self.alarm = True
+            self.faultcode = "OVERVOLTAGE"
+            return
+        if self.current > 3.0:
+            self.alarm = True
+            self.faultcode = "OVERCURRENT"
+            return
+
         
     def display_info(self):
         power = self.voltage * self.current
+        self.alarm = "on" if self.alarm else "off"
 
         print("=" * 40)
         print("Virtual Device Created")
@@ -58,4 +84,8 @@ class Device:
         print(f"Current: {self.current} A")
         print(f"Power: {power} W")
         print(f"Temperature: {self.temperature} °C")
+        print(f"Alarm: {self.alarm}")
+        print(f"Fault Code: {self.faultcode}")
         print("=" * 40)
+
+    
