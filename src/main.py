@@ -15,7 +15,7 @@ def main():
     device.display_info()
 
     print("Updated Measurements")
-    for sample_number in range(1, 6):
+    for sample_number in range(1, 11):
         print(f"Sample {sample_number}")
         device.update_measurements()
         device.check_faults()

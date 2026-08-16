@@ -15,6 +15,10 @@ class Device:
         self.voltage_noise_std = 0.02
         self.current_noise_std = 0.02
         self.temperature_noise_std = 0.20
+
+        self.voltage_bias = 0.04
+        self.current_bias = 0.01
+        self.temperature_bias = 0.3
         
         self.voltage = 0.0 
         self.current = 0.0 
@@ -75,9 +79,9 @@ class Device:
         current_noise = random.gauss(0, self.current_noise_std)
         temperature_noise = random.gauss(0, self.temperature_noise_std)
 
-        self.voltage = self.nominal_voltage + voltage_noise
-        self.current = self.nominal_current + current_noise
-        self.temperature = self.nominal_temperature + temperature_noise
+        self.voltage = self.nominal_voltage + self.voltage_bias + voltage_noise
+        self.current = self.nominal_current + self.current_bias + current_noise
+        self.temperature = self.nominal_temperature + self.temperature_bias + temperature_noise
 
     def display_info(self):
         power = self.voltage * self.current
