@@ -11,6 +11,10 @@ class Device:
         self.nominal_voltage = 12.0
         self.nominal_current = 1.5
         self.nominal_temperature = 32.0
+
+        self.voltage_noise_std = 0.02
+        self.current_noise_std = 0.02
+        self.temperature_noise_std = 0.20
         
         self.voltage = 0.0 
         self.current = 0.0 
@@ -67,11 +71,14 @@ class Device:
             return
 
     def update_measurements(self):
-        self.voltage = random.uniform(self.nominal_voltage - 0.05, self.nominal_voltage + 0.05)
-        self.current = random.uniform(self.nominal_current - 0.05, self.nominal_current + 0.05)
-        self.temperature = random.uniform(self.nominal_temperature - 0.5, self.nominal_temperature + 0.5)
+        voltage_noise = random.gauss(0, self.voltage_noise_std)
+        current_noise = random.gauss(0, self.current_noise_std)
+        temperature_noise = random.gauss(0, self.temperature_noise_std)
 
-        
+        self.voltage = self.nominal_voltage + voltage_noise
+        self.current = self.nominal_current + current_noise
+        self.temperature = self.nominal_temperature + temperature_noise
+
     def display_info(self):
         power = self.voltage * self.current
         self.alarm = "on" if self.alarm else "off"
