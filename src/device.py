@@ -24,6 +24,10 @@ class Device:
         self.current_drift_per_sample = 0.002
         self.temperature_drift_per_sample = 0.5  
 
+        self.voltage_sensor_frozen = False
+        self.current_sensor_frozen = False
+        self.temperature_sensor_frozen = False
+
         self.sample_count = 0   
         
         self.voltage = 0.0 
@@ -82,6 +86,20 @@ class Device:
     def reset_sensor_model(self):
         self.sample_count = 0
 
+    def freeze_voltage_sensor(self):
+        self.voltage_sensor_frozen = True
+
+    def freeze_current_sensor(self):
+        self.current_sensor_frozen = True
+
+    def freeze_temperature_sensor(self):
+        self.temperature_sensor_frozen = True
+
+    def clear_sensor_freeze(self):
+        self.voltage_sensor_frozen = False
+        self.current_sensor_frozen = False
+        self.temperature_sensor_frozen = False
+
     def update_measurements(self):
 
         if self.state != "RUNNING":
@@ -92,14 +110,20 @@ class Device:
         voltage_noise = random.gauss(0, self.voltage_noise_std)
         current_noise = random.gauss(0, self.current_noise_std)
         temperature_noise = random.gauss(0, self.temperature_noise_std)
-
+       
         voltage_drift = (self.voltage_drift_per_sample * self.sample_count)
         current_drift = (self.current_drift_per_sample * self.sample_count)
         temperature_drift = (self.temperature_drift_per_sample * self.sample_count)
 
-        self.voltage = (self.nominal_voltage + self.voltage_bias + voltage_noise + voltage_drift)
-        self.current = (self.nominal_current + self.current_bias + current_noise + current_drift)
-        self.temperature = (self.nominal_temperature + self.temperature_bias + temperature_noise + temperature_drift)
+        if not self.voltage_sensor_frozen:
+            self.voltage = (self.nominal_voltage + self.voltage_bias + voltage_noise + voltage_drift)
+
+        if not self.current_sensor_frozen:
+            self.current = (self.nominal_current + self.current_bias + current_noise + current_drift)
+
+        if not self.temperature_sensor_frozen:
+            self.temperature = (self.nominal_temperature + self.temperature_bias + 
+                                temperature_noise + temperature_drift)
 
     def display_info(self):
         power = self.voltage * self.current
