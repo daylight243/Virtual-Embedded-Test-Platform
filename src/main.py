@@ -14,22 +14,24 @@ def main():
     print("Initial Running Conditions")
     device.display_info()
 
-    print("Updated Measurements")
-    device.reset_sensor_model
-    for sample_number in range(1, 4):
-        print(f"Sample {sample_number}")
-        device.update_measurements()
-        device.check_faults()
-        device.display_info()
+    print("Health Device")
+    device.update_measurements()
+    device.check_faults()
+    device.display_info()
 
-    print("Freezing Temperature Sensors")
+    print("Invalidating Temperature Sensors")
 
-    device.freeze_temperature_sensor()
-    for sample_number in range(4, 8):
-            print(f"Sample {sample_number}")
-            device.update_measurements()
-            device.check_faults()
-            device.display_info()
+    device.invalidate_temperature_sensor()
+    device.check_faults()
+    device.display_info()
+
+    device.invalidate_current_sensor()
+    device.check_faults()                       
+    device.display_info()
+
+    device.invalidate_voltage_sensor()
+    device.check_faults()           
+    device.display_info()
 
 if __name__ == "__main__":
 

@@ -28,6 +28,10 @@ class Device:
         self.current_sensor_frozen = False
         self.temperature_sensor_frozen = False
 
+        self.voltage_valid = True
+        self.current_valid = True
+        self.temperature_valid = True
+
         self.sample_count = 0   
         
         self.voltage = 0.0 
@@ -67,6 +71,21 @@ class Device:
         self.alarm = False
         self.faultcode = "NONE"
 
+        if not self.voltage_valid:
+            self.alarm = True
+            self.faultcode = "INVALID_VOLTAGE"
+            return
+
+        if not self.current_valid:
+            self.alarm = True
+            self.faultcode = "INVALID_CURRENT"
+            return
+
+        if not self.temperature_valid:
+            self.alarm = True
+            self.faultcode = "INVALID_TEMPERATURE"
+            return
+
         if self.temperature > 70.0:
             self.alarm = True
             self.faultcode = "OVERHEAT"
@@ -100,6 +119,28 @@ class Device:
         self.current_sensor_frozen = False
         self.temperature_sensor_frozen = False
 
+    def invalidate_voltage_sensor(self):
+        self.voltage = None
+        self.voltage_valid = False
+
+    def invalidate_current_sensor(self):
+        self.current = None
+        self.current_valid = False
+
+    def invalidate_temperature_sensor(self):
+        self.temperature = None
+        self.temperature_valid = False
+
+    def clear_invalid_measurements(self):
+        self.voltage_valid = True
+        self.current_valid = True
+        self.temperature_valid = True
+
+        if self.state == "RUNNING":
+            self.voltage = self.nominal_voltage 
+            self.current = self.nominal_current 
+            self.temperature = self.nominal_temperature 
+
     def update_measurements(self):
 
         if self.state != "RUNNING":
@@ -115,20 +156,25 @@ class Device:
         current_drift = (self.current_drift_per_sample * self.sample_count)
         temperature_drift = (self.temperature_drift_per_sample * self.sample_count)
 
-        if not self.voltage_sensor_frozen:
+        if (self.voltage_valid and not self.voltage_sensor_frozen):
             self.voltage = (self.nominal_voltage + self.voltage_bias + voltage_noise + voltage_drift)
 
-        if not self.current_sensor_frozen:
+        if (self.current_valid and not self.current_sensor_frozen):
             self.current = (self.nominal_current + self.current_bias + current_noise + current_drift)
 
-        if not self.temperature_sensor_frozen:
+        if (self.temperature_valid and not self.temperature_sensor_frozen):
             self.temperature = (self.nominal_temperature + self.temperature_bias + 
                                 temperature_noise + temperature_drift)
 
     def display_info(self):
-        power = self.voltage * self.current
-        self.alarm = "on" if self.alarm else "off"
 
+        if self.voltage_valid and self.current_valid:
+            power = self.voltage * self.current
+        else:
+            power = None
+
+        self.alarm = "on" if self.alarm else "off"
+    
         print("=" * 40)
         print("Virtual Device Created")
         print()
@@ -141,13 +187,39 @@ class Device:
         print("---Measurements---")
         print()
 
+        if self.voltage_valid:
+             voltage_text = f"{self.voltage:.2f} V"
+        else:
+             voltage_text = "INVALID"
+        if self.current_valid:
+             current_text = f"{self.current:.2f} A" 
+        else:
+             current_text = "INVALID"
+        if self.temperature_valid:
+             temperature_text = f"{self.temperature:.2f} °C"    
+        else:
+             temperature_text = "INVALID"
+        if power is not None:
+             power_text = f"{power:.2f} W" 
+        else:
+             power_text = "INVALID"
+
         print(f"Sample Count: {self.sample_count}")
-        print(f"Voltage: {self.voltage:.2f} V")
-        print(f"Current: {self.current:.2f} A")
-        print(f"Power: {power:.2f} W")
-        print(f"Temperature: {self.temperature:.2f} °C")
+        print(f"Voltage: {voltage_text}")
+        print(f"Current: {current_text}")
+        print(f"Power: {power_text}")
+        print(f"Temperature: {temperature_text}")
         print(f"Alarm: {self.alarm}")
-        print(f"Fault Code: {self.faultcode}")
+        print(f"Fault Code: {self.faultcode}")   
+
+        print()
+        print("---Sensor Validity---")
+        print()
+
+        print(f"Voltage Valid: {self.voltage_valid}")   
+        print(f"Current Valid: {self.current_valid}")
+        print(f"Temperature Valid: {self.temperature_valid}")
+
         print("=" * 40)
 
     
