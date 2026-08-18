@@ -32,6 +32,12 @@ class Device:
         self.current_valid = True
         self.temperature_valid = True
 
+        self.intermittent_fault_enabled = False
+        self.intermittent_fault_interval = 3
+
+        self.intermittent_fault_type = "UNDERVOLTAGE"  # Example fault type
+        
+
         self.sample_count = 0   
         
         self.voltage = 0.0 
@@ -140,6 +146,22 @@ class Device:
             self.voltage = self.nominal_voltage 
             self.current = self.nominal_current 
             self.temperature = self.nominal_temperature 
+    def intermittent_fault_active(self):
+        if not self.intermittent_fault_enabled:
+            return False
+
+        return (
+            self.sample_count % self.intermittent_fault_interval == 0
+        )
+    def enable_intermittent_fault(self, fault_type="UNDERVOLTAGE"):
+        self.intermittent_fault_enabled = True
+        self.intermittent_fault_type = fault_type
+
+    def disable_intermittent_fault(self):
+        self.intermittent_fault_enabled = False
+
+    def intermittent_status(self):
+        return self.intermittent_fault_active()
 
     def update_measurements(self):
 
@@ -165,6 +187,12 @@ class Device:
         if (self.temperature_valid and not self.temperature_sensor_frozen):
             self.temperature = (self.nominal_temperature + self.temperature_bias + 
                                 temperature_noise + temperature_drift)
+
+        if self.intermittent_fault_active():
+            if self.intermittent_fault_type == "UNDERVOLTAGE":
+                self.voltage = 9.0
+            elif self.intermittent_fault_type == "OVERTEMPERATURE":
+                self.temperature = 80.0
 
     def display_info(self):
 

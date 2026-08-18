@@ -11,27 +11,16 @@ def main():
     device.start()
     device.run()
 
-    print("Initial Running Conditions")
-    device.display_info()
-
-    print("Health Device")
-    device.update_measurements()
-    device.check_faults()
-    device.display_info()
-
-    print("Invalidating Temperature Sensors")
-
-    device.invalidate_temperature_sensor()
-    device.check_faults()
-    device.display_info()
-
-    device.invalidate_current_sensor()
-    device.check_faults()                       
-    device.display_info()
-
-    device.invalidate_voltage_sensor()
-    device.check_faults()           
-    device.display_info()
+    device.enable_intermittent_fault()  # Enable intermittent fault 
+    for sample in range(1, 10):
+        device.update_measurements()
+        device.check_faults()
+        fault_active = device.intermittent_status()
+        print(f"Sample {sample}:")
+        print(f"Voltage: {device.voltage:.2f} V")
+        print(f"Intermittent Fault Active: {fault_active}")
+        print(f"Fault Code: {device.faultcode}")
+    
 
 if __name__ == "__main__":
 
