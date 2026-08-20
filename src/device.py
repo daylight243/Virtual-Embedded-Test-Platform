@@ -7,7 +7,7 @@ class Device:
         self.device_id = "PWR-001"
         
         self.state = "OFF"
-
+  
         self.nominal_voltage = 12.0
         self.nominal_current = 1.5
         self.nominal_temperature = 32.0
@@ -44,6 +44,9 @@ class Device:
         self.current = 0.0 
         self.temperature = 25.0
 
+        self.reset_requested = False
+        self.start_requested = False
+        
         self.alarm = False
         self.faultcode = "NONE"
         
@@ -162,6 +165,81 @@ class Device:
 
     def intermittent_status(self):
         return self.intermittent_fault_active()
+
+    def get_digital_fault_inputs(self):
+        uv = 0
+        ov = 0 
+        oc = 0
+        ot = 0
+
+        if self.voltage_valid:
+            if self.voltage < 10.0:
+                 uv = 1
+            if self.voltage > 14.0:
+                 ov = 1
+        if self.current_valid:
+             if self.current > 3.0:
+                  oc = 1
+
+        if self.temperature_valid:
+             if self.temperature > 80.0:
+                  ot = 1
+        return{ 
+           "uv": uv,
+           "ov": ov,
+           "oc": oc,
+           "ot": ot,
+        }
+    def display_digital_inputs(self):
+         signals = self.get_digital_fault_inputs()
+
+         print("---Digital Fault Inputs---")
+         print()
+
+         print(f"UV : {signals['uv']}") 
+         print(f"OV : {signals['ov']}") 
+         print(f"OC : {signals['oc']}") 
+         print(f"OT : {signals['ot']}")
+
+    def request_reset(self):
+         self.reset_requested = True
+
+    def clear_request_reset(self):
+         self.reset_requested = False
+
+    def request_start(self):
+         self.start_requested = True
+
+    def clear_request_start(self):
+         self.start_requested = False
+
+    def get_fpga_inputs(self):
+         fault = self.get_digital_fault_inputs()
+         return{
+              "reset" : int(self.reset_requested),
+              "start" : int(self.start_requested),
+              "uv": fault["uv"],
+              "ov": fault["ov"],
+              "oc": fault["oc"],
+              "ot": fault["ot"],
+         }
+    def display_fpga_inputs(self):
+         
+         signals = self.get_fpga_inputs()
+
+         print("---FPGA INPUTS---")
+         print()
+
+         print(f"RESET: {signals['reset']}")
+         print(f"START: {signals['start']}")
+         print(f"UV: {signals['uv']}")
+         print(f"OV: {signals['ov']}")
+         print(f"OC: {signals['oc']}")
+         print(f"OT: {signals['ot']}")
+
+
+
+         
 
     def update_measurements(self):
 
