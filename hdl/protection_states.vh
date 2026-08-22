@@ -1,0 +1,10 @@
+`ifndef PROTECTION_STATES_VH
+`define PROTECTION_STATES_VH
+
+`define STATE_IDLE      3'b000
+`define STATE_STARTUP   3'b001
+`define STATE_RUNNING   3'b010
+`define STATE_FAULT     3'b011
+`define STATE_RECOVERY  3'b100
+
+`endif
