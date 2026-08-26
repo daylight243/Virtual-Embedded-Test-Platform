@@ -12,17 +12,23 @@ module tb_protection_fsm;
     reg overtemperature;
 
     wire [2:0] state_code;
+    wire fault_present;
+    wire [2:0] fault_code;
 
     protection_fsm dut (
+        
         .clk(clk), 
         .reset(reset), 
         .start(start), 
+        
         .undervoltage(undervoltage), 
         .overvoltage(overvoltage),
         .overcurrent(overcurrent), 
         .overtemperature(overtemperature), 
-        .state_code(state_code)
-
+        
+        .state_code(state_code),
+        .fault_present(fault_present),
+        .fault_code(fault_code)
     );
 
     initial begin
@@ -77,23 +83,40 @@ module tb_protection_fsm;
             $display("PASS: STARTUP -> RUNNING");
         else 
             $display("FAIL: STARTUP transition"); 
+
         // Try START again while already RUNNING. 
-        start = 1; #10; 
+        start = 1;
+        #10; 
         if (state_code == `STATE_RUNNING) 
             $display("PASS: START ignored while RUNNING"); 
         else 
             $display("FAIL: Invalid RUNNING transition"); 
         
-        start = 0; 
-        // Inject overcurrent. 
-        overcurrent = 1; 
-        #10; 
-        if (state_code == `STATE_FAULT) 
-            $display("PASS: RUNNING + fault -> FAULT"); 
-        else 
-            $display("FAIL: Fault transition"); 
+        start = 0;
+        // Test Winning fault and FSM transition
+        undervoltage = 1;
+        overvoltage = 1;
+        overtemperature = 1;
+        overcurrent = 1;
+
+        #1;
+        if (fault_code == `FAULT_OVERCURRENT)
+            $display("PASS: Integrated priority selects OC");
+        else
+            $display("FAIL: Integrated fault priority");
+
+        #9;
+        if (state_code == `STATE_FAULT)
+            $display("PASS: Prioritized fault drives FSM to FAULT");
+        else
+            $display("FAIL: Prioritized fault did not trigger FAULT");
+        
+
         // Remove fault. FAULT should remain latched. 
-        overcurrent = 0; 
+        undervoltage = 0;
+        overvoltage = 0;
+        overcurrent = 0;
+        overtemperature = 0;
         #10; 
         if (state_code == `STATE_FAULT) 
             $display("PASS: FAULT remains latched"); 

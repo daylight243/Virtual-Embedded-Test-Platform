@@ -2,10 +2,7 @@
 module protection_next_state(
     input wire [2:0] current_state,
     input wire start,
-    input wire undervoltage,
-    input wire overvoltage,
-    input wire overcurrent,
-    input wire overtemperature,
+    input wire fault_present,
     output reg [2:0] next_state
 );
 
@@ -25,12 +22,8 @@ module protection_next_state(
             end
 
             `STATE_RUNNING: begin
-                if(undervoltage ||
-                   overvoltage  ||
-                   overcurrent  ||
-                   overtemperature 
-                )
-                   next_state = `STATE_FAULT;
+                if (fault_present)
+                    next_state = `STATE_FAULT;
             end
 
             `STATE_FAULT: begin
