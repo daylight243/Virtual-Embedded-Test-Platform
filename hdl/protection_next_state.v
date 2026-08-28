@@ -2,7 +2,7 @@
 module protection_next_state(
     input wire [2:0] current_state,
     input wire start,
-    input wire fault_present,
+    input wire confirmed_fault,
     output reg [2:0] next_state
 );
 
@@ -22,7 +22,7 @@ module protection_next_state(
             end
 
             `STATE_RUNNING: begin
-                if (fault_present)
+                if (confirmed_fault)
                     next_state = `STATE_FAULT;
             end
 

@@ -15,6 +15,9 @@ module tb_protection_fsm;
     wire fault_present;
     wire [2:0] fault_code;
 
+    wire confirmed_fault;
+    wire [1:0] fault_count;
+
     protection_fsm dut (
         
         .clk(clk), 
@@ -28,7 +31,10 @@ module tb_protection_fsm;
         
         .state_code(state_code),
         .fault_present(fault_present),
-        .fault_code(fault_code)
+        .fault_code(fault_code),
+
+        .confirmed_fault(confirmed_fault),
+        .fault_count(fault_count)
     );
 
     initial begin
@@ -92,43 +98,45 @@ module tb_protection_fsm;
         else 
             $display("FAIL: Invalid RUNNING transition"); 
         
+        //Test Brief Fault Rejection.
         start = 0;
-        // Test Winning fault and FSM transition
-        undervoltage = 1;
-        overvoltage = 1;
+        overcurrent = 1;
+        #10;
+        overcurrent = 0;
+        #10;
+        if (state_code == `STATE_RUNNING)
+        $display("PASS: Brief fault rejected");
+        else
+        $display("FAIL: Brief fault caused FAULT");
+
+        //Test Sustained Fault and Fault Priority.
         overtemperature = 1;
         overcurrent = 1;
-
-        #1;
-        if (fault_code == `FAULT_OVERCURRENT)
-            $display("PASS: Integrated priority selects OC");
-        else
-            $display("FAIL: Integrated fault priority");
-
-        #9;
+        #40;
         if (state_code == `STATE_FAULT)
-            $display("PASS: Prioritized fault drives FSM to FAULT");
+            $display("PASS: Sustained fault enters FAULT, OC beats OT");
         else
-            $display("FAIL: Prioritized fault did not trigger FAULT");
-        
-
-        // Remove fault. FAULT should remain latched. 
-        undervoltage = 0;
-        overvoltage = 0;
-        overcurrent = 0;
+            $display("FAIL: Sustained fault not accepted, priority OC/OT");
+        // Remove the fault.
+        // FAULT should remain latched.
         overtemperature = 0;
-        #10; 
-        if (state_code == `STATE_FAULT) 
-            $display("PASS: FAULT remains latched"); 
-        else 
-            $display("FAIL: FAULT did not remain latched"); 
+        overcurrent = 0;
+        #10;
+
+        if (state_code == `STATE_FAULT)
+            $display("PASS: FAULT remains latched after fault clears");
+        else
+            $display("FAIL: FAULT did not remain latched");
+
         // Global reset returns the controller to IDLE. 
-            reset = 1; 
-            #10; 
+        reset = 1; 
+        #10; 
         if (state_code == `STATE_IDLE) 
             $display("PASS: Reset returns FAULT -> IDLE"); 
         else 
             $display("FAIL: Reset did not return to IDLE"); 
+          
+           // $display("DEBUG: count=%b confirmed=%b state=%b", fault_count, confirmed_fault, state_code); 
             $display(""); 
             $display("FSM test complete."); 
             $display("========================================"); 

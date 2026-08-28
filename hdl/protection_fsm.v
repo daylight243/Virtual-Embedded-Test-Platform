@@ -8,10 +8,21 @@ module protection_fsm (
     input wire overtemperature,
     output wire [2:0] state_code,
     output wire fault_present,
-    output wire [2:0] fault_code
+    output wire [2:0] fault_code,
+    output wire confirmed_fault,
+    output wire [1:0] fault_count
 );
 
     wire [2:0] next_state;
+    
+
+    fault_persistence fault_filter (
+    .clk(clk),
+    .reset(reset),
+    .fault_present(fault_present),
+    .confirmed_fault(confirmed_fault),
+    .fault_count(fault_count)
+    );
 
     fault_priority fault_selector (
         .undervoltage(undervoltage),
@@ -25,7 +36,7 @@ module protection_fsm (
     protection_next_state next_state_logic(
         .current_state(state_code), 
         .start(start), 
-        .fault_present(fault_present),
+        .confirmed_fault(confirmed_fault),
         .next_state(next_state)
     );
 
