@@ -9,8 +9,13 @@ module protection_state_register(
 
     always @(posedge clk) begin
         
-        if (reset)
-            state_code <= `STATE_IDLE;
+        if (reset) begin
+            if (state_code == `STATE_FAULT)
+                state_code <= `STATE_RECOVERY;
+            else
+                state_code <= `STATE_IDLE;
+        end
+        
         else
             state_code <= next_state;
     end
