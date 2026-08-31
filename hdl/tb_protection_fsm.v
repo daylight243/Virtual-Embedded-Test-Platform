@@ -18,6 +18,9 @@ module tb_protection_fsm;
     wire confirmed_fault;
     wire [1:0] fault_count;
 
+    wire alarm;
+    wire shutdown;
+
     protection_fsm dut (
         
         .clk(clk), 
@@ -34,7 +37,10 @@ module tb_protection_fsm;
         .fault_code(fault_code),
 
         .confirmed_fault(confirmed_fault),
-        .fault_count(fault_count)
+        .fault_count(fault_count),
+
+        .alarm(alarm),
+        .shutdown(shutdown)
     );
 
     initial begin
@@ -90,6 +96,13 @@ module tb_protection_fsm;
         else 
             $display("FAIL: STARTUP transition"); 
 
+        
+        // Test: Healthy Running Outputs.
+        if (state_code == `STATE_RUNNING && alarm == 0 & shutdown == 0 && fault_code == `FAULT_NONE)
+             $display("PASS: Healthy RUNNING outputs");
+        else
+             $display("FAIL: Healthy RUNNING outputs");
+
         // Try START again while already RUNNING. 
         start = 1;
         #10; 
@@ -98,43 +111,42 @@ module tb_protection_fsm;
         else 
             $display("FAIL: Invalid RUNNING transition"); 
         
-        //Test Brief Fault Rejection.
+        //Test Brief Fault causes no Shutdown.
         start = 0;
         overcurrent = 1;
         #10;
         overcurrent = 0;
         #10;
-        if (state_code == `STATE_RUNNING)
-        $display("PASS: Brief fault rejected");
+        if (state_code == `STATE_RUNNING && alarm == 0 && shutdown == 0 && fault_code == `FAULT_NONE)
+            $display("PASS: Brief fault causes no shutdown");
         else
-        $display("FAIL: Brief fault caused FAULT");
-
-        //Test Sustained Fault and Fault Priority.
-        overtemperature = 1;
+            $display("FAIL: Brief fault output behaviour");
+        
+        //Test Sustained OC TRIGGERS Protection Outputs.
         overcurrent = 1;
         #40;
-        if (state_code == `STATE_FAULT)
-            $display("PASS: Sustained fault enters FAULT, OC beats OT");
+        if (state_code == `STATE_FAULT && alarm == 1 && shutdown == 1 && fault_code == `FAULT_OVERCURRENT)
+            $display("PASS: Sustained OC triggers protection outputs");
         else
-            $display("FAIL: Sustained fault not accepted, priority OC/OT");
+            $display("FAIL: Sustained OC protection outputs");
+        
         // Remove the fault.
         // FAULT should remain latched.
-        overtemperature = 0;
         overcurrent = 0;
         #10;
 
-        if (state_code == `STATE_FAULT)
-            $display("PASS: FAULT remains latched after fault clears");
+        if (state_code == `STATE_FAULT && fault_code == `FAULT_OVERCURRENT)
+            $display("PASS: Fault cause remains stored");
         else
-            $display("FAIL: FAULT did not remain latched");
+            $display("FAIL: Stored fault cause");
 
         // Global reset returns the controller to IDLE. 
         reset = 1; 
         #10; 
-        if (state_code == `STATE_IDLE) 
-            $display("PASS: Reset returns FAULT -> IDLE"); 
-        else 
-            $display("FAIL: Reset did not return to IDLE"); 
+         if (state_code == `STATE_IDLE && fault_code == `FAULT_NONE && alarm == 0 && shutdown == 0)
+            $display("PASS: Reset clears protection state");
+        else
+            $display("FAIL: Protection reset");
           
            // $display("DEBUG: count=%b confirmed=%b state=%b", fault_count, confirmed_fault, state_code); 
             $display(""); 

@@ -10,11 +10,13 @@ module protection_fsm (
     output wire fault_present,
     output wire [2:0] fault_code,
     output wire confirmed_fault,
-    output wire [1:0] fault_count
+    output wire [1:0] fault_count,
+    output wire alarm,
+    output wire shutdown
 );
 
     wire [2:0] next_state;
-    
+    wire [2:0] active_fault_code;
 
     fault_persistence fault_filter (
     .clk(clk),
@@ -30,7 +32,15 @@ module protection_fsm (
         .overcurrent(overcurrent),
         .overtemperature(overtemperature),
         .fault_present(fault_present),
-        .fault_code(fault_code)
+        .fault_code(active_fault_code)
+    );
+
+    fault_latch fault_register(
+        .clk(clk),
+        .reset(reset),
+        .confirmed_fault(confirmed_fault),
+        .active_fault_code(active_fault_code),
+        .stored_fault_code(fault_code)
     );
     
     protection_next_state next_state_logic(
@@ -46,6 +56,12 @@ module protection_fsm (
         .next_state(next_state), 
         .state_code(state_code)
     ); 
+
+    protection_outputs output_logic(
+        .state_code(state_code),
+        .alarm(alarm),
+        .shutdown(shutdown)
+    );
     
 endmodule
     
