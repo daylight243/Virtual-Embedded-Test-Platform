@@ -91,6 +91,42 @@ def build_demo_vectors() -> list[FPGATestVector]:
             oc=1,
             ot=0,
         ),
+        FPGATestVector(
+            timestamp=4,
+            reset=0,
+            start=0,
+            uv=0,
+            ov=0,
+            oc=1,
+            ot=0,
+        ),
+        FPGATestVector(
+            timestamp=5,
+            reset=0,
+            start=0,
+            uv=0,
+            ov=0,
+            oc=1,
+            ot=0,
+        ),
+        FPGATestVector(
+            timestamp=6,
+            reset=0,
+            start=0,
+            uv=0,
+            ov=0,
+            oc=1,
+            ot=0,
+        ),
+        FPGATestVector(
+            timestamp=7,
+            reset=0,
+            start=0,
+            uv=0,
+            ov=0,
+            oc=0,
+            ot=0,
+        ),
     ]
 CSV_HEADER = "timestamp,reset,start,uv,ov,oc,ot"
 def write_vectors(
