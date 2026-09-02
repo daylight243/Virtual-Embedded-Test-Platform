@@ -1,5 +1,6 @@
 from pathlib import Path
 import subprocess
+from fpga_vectors import (build_demo_vectors, write_vectors)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -7,6 +8,8 @@ HDL_DIR = PROJECT_ROOT / "hdl"
 BUILD_DIR = PROJECT_ROOT / "build"
 
 SIMULATION_OUTPUT = BUILD_DIR / "protection_controller_sim"
+
+FPGA_INPUT_FILE = BUILD_DIR / "fpga_inputs.csv"
 
 VERILOG_SOURCES = [
     HDL_DIR / "fault_priority.v",
@@ -68,11 +71,22 @@ def run_fpga_simulation() -> str:
 def fpga_tests_passed(output: str) -> bool:
     return "MISSION 3 HDL RESULT: PASS" in output
 
+
+
 def main() -> None:
     print("========================================")
     print(" Virtual Embedded Test Platform")
     print(" Python -> FPGA Integration")
     print("========================================")
+    print("")
+
+    print("Creating FPGA input vectors...")
+    vectors = build_demo_vectors()
+    write_vectors(
+        vectors=vectors,
+        output_path = FPGA_INPUT_FILE,
+    )
+    print("FPGA input vectors created.")
     print("")
 
     try:
