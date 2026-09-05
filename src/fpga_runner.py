@@ -1,6 +1,7 @@
 from pathlib import Path
 import subprocess
 from fpga_vectors import (build_demo_vectors, write_vectors)
+from fpga_results import (read_FPGA_results, validate_input_output_alignment)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -10,6 +11,8 @@ BUILD_DIR = PROJECT_ROOT / "build"
 SIMULATION_OUTPUT = BUILD_DIR / "protection_controller_sim"
 
 FPGA_INPUT_FILE = BUILD_DIR / "fpga_inputs.csv"
+FPGA_OUTPUT_FILE = BUILD_DIR / "fpga_outputs.csv"
+
 
 VERILOG_SOURCES = [
     HDL_DIR / "fault_priority.v",
@@ -162,6 +165,8 @@ def run_python_integration() -> str:
     return run_simulation(
         PYTHON_INTEGRATION_OUTPUT
     )
+
+
 def main() -> None:
     print("========================================")
     print(" Virtual Embedded Test Platform")
@@ -217,7 +222,39 @@ def main() -> None:
 
 
         print("INTEGRATION RESULT: PASS")
+        print("Reading FPGA output file...")
 
+        results = read_FPGA_results(
+            FPGA_OUTPUT_FILE
+        )
+
+        print(
+            f"FPGA results read: {len(results)}"
+        )
+        print("")
+
+        input_timestamps = [
+            vector.timestamp
+            for vector in vectors
+        ]
+
+        validate_input_output_alignment(
+            input_timestamps=input_timestamps,
+            results=results,
+        )
+
+        print("FPGA result summary:")
+        print("")
+
+        for result in results:
+
+            print(
+                f"t={result.timestamp} | "
+                f"{result.state_name:<8} | "
+                f"{result.fault_name:<15} | "
+                f"alarm={result.alarm} | "
+                f"shutdown={result.shutdown}"
+            )
 
     except RuntimeError as error:
         print("")

@@ -26,6 +26,7 @@ module tb_python_integration;
 
 
     integer input_file;
+    integer output_file;
     integer scanned_fields;
 
     integer timestamp_in;
@@ -113,6 +114,26 @@ module tb_python_integration;
 
         end
 
+        output_file = $fopen("build/fpga_outputs.csv", "w");
+
+        if (output_file == 0) begin
+
+            $display(
+                "ERROR: Could not open build/fpga_outputs.csv"
+            );
+
+            $display(
+                "PYTHON -> FPGA RESULT: FAIL"
+            );
+
+            $fclose(input_file);
+
+            $finish;
+
+        end
+
+        $fdisplay(output_file, "timestamp,state_code,fault_code,alarm,shutdown");
+        
         //Skip CSV header.
         scanned_fields = $fgets(header_line, input_file);
         
@@ -167,13 +188,16 @@ module tb_python_integration;
                     confirmed_fault
                 );
 
-            end
+                $fdisplay(output_file, "%0d,%0d,%0d,%0d,%0d", timestamp_in, state_code, fault_code, alarm, shutdown);
+        
 
+            end
+        
         end
 
 
         $fclose(input_file);
-
+        $fclose(output_file);
 
         $display("");
         $display("Vectors processed: %0d", vector_count);
