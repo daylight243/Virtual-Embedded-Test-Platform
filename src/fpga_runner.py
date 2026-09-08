@@ -2,6 +2,12 @@ from pathlib import Path
 import subprocess
 from fpga_vectors import (build_demo_vectors, write_vectors)
 from fpga_results import (read_FPGA_results, validate_input_output_alignment)
+from fpga_verification import (
+    build_demo_expectations,
+    verify_results,
+    verification_passed,
+    print_verification_report,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -243,6 +249,15 @@ def main() -> None:
             results=results,
         )
 
+        expectations = (
+        build_demo_expectations()
+        )
+
+        verification_results = verify_results(
+            expectations=expectations,
+            actual_result=results,
+        )
+
         print("FPGA result summary:")
         print("")
 
@@ -254,6 +269,16 @@ def main() -> None:
                 f"{result.fault_name:<15} | "
                 f"alarm={result.alarm} | "
                 f"shutdown={result.shutdown}"
+            )
+        print_verification_report(
+        verification_results
+        )
+        if not verification_passed(
+            verification_results
+        ):
+            raise RuntimeError(
+                "FPGA behaviour did not match "
+                "the expected results."
             )
 
     except RuntimeError as error:
