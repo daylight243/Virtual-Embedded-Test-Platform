@@ -8,6 +8,10 @@ from fpga_verification import (
     verification_passed,
     print_verification_report,
 )
+from fpga_test_cases import (
+    EngineeringTestCase,
+    build_engineering_test_cases,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -85,6 +89,15 @@ def compile_fpga() -> None:
             "Failed compilation failed.\n\n"
             f"{result.stderr}"
         )
+
+def prepare_test_case(
+    test_case: EngineeringTestCase,
+) -> None:
+
+    write_vectors(
+        list(test_case.vectors),
+        FPGA_INPUT_FILE,
+    )
 
 def run_fpga_simulation() -> str:
     command = [
@@ -171,6 +184,112 @@ def run_python_integration() -> str:
     return run_simulation(
         PYTHON_INTEGRATION_OUTPUT
     )
+
+def run_engineering_test(
+    test_case: EngineeringTestCase,
+) -> bool:
+
+    print("")
+    print("========================================")
+    print(
+        f"{test_case.test_id} | "
+        f"{test_case.name}"
+    )
+    print("========================================")
+
+    test_case.validate()
+
+    write_vectors(
+        list(test_case.vectors),
+        FPGA_INPUT_FILE,
+    )
+
+    run_python_integration()
+
+    actual_results = read_FPGA_results(
+        FPGA_OUTPUT_FILE
+    )
+
+    input_timestamps = [
+        vector.timestamp
+        for vector in test_case.vectors
+    ]
+
+    validate_input_output_alignment(
+        input_timestamps,
+        actual_results,
+    )
+
+    verification_results = verify_results(
+        expectations=list(
+            test_case.expectations
+        ),
+        actual_result=actual_results,
+    )
+
+    print_verification_report(
+        verification_results
+    )
+
+    return verification_passed(
+        verification_results
+    )
+
+def run_test_campaign(
+    test_cases: list[EngineeringTestCase],
+) -> bool:
+
+    passed_tests = 0
+    failed_tests = 0
+
+    for test_case in test_cases:
+
+        passed = run_engineering_test(
+            test_case
+        )
+
+        if passed:
+            passed_tests += 1
+        else:
+            failed_tests += 1
+
+    print("")
+    print("========================================")
+    print(" FPGA ENGINEERING TEST CAMPAIGN")
+    print("========================================")
+    print(
+        f"Passed: {passed_tests}"
+    )
+    print(
+        f"Failed: {failed_tests}"
+    )
+
+    overall_passed = (
+        failed_tests == 0
+    )
+
+    print(
+        "Overall: "
+        + (
+            "PASS"
+            if overall_passed
+            else "FAIL"
+        )
+    )
+
+    print("========================================")
+
+    return overall_passed
+
+test_cases = (
+    build_engineering_test_cases()
+)
+
+campaign_passed = run_test_campaign(
+    test_cases
+)
+
+
 
 
 def main() -> None:
