@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from fpga_vectors import FPGATestVector
 from fpga_verification import FPGAExpectation
+from fpga_fault_injection import (FaultInjection, apply_fault_injections)
 
 @dataclass(frozen = True)
 class EngineeringTestCase:
@@ -183,36 +184,20 @@ def build_brief_uv_test() -> EngineeringTestCase:
 
     expectations = healthy_startup_expectations()
 
-    vectors.extend([
-        FPGATestVector(
-            timestamp=3,
-            reset=0,
-            start=0,
-            uv=1,
-            ov=0,
-            oc=0,
-            ot=0,
-        ),
-        FPGATestVector(
-            timestamp=4,
-            reset=0,
-            start=0,
-            uv=0,
-            ov=0,
-            oc=0,
-            ot=0,
-        ),
-        FPGATestVector(
-            timestamp=5,
-            reset=0,
-            start=0,
-            uv=0,
-            ov=0,
-            oc=0,
-            ot=0,
-        ),
-    ])
+    vectors = build_running_scenario(
+    final_timestamp=5
+)
 
+    vectors = apply_fault_injections(
+        vectors=vectors,
+        injections=[
+            FaultInjection(
+                fault="undervoltage",
+                start_timestamp=3,
+                duration=1,
+            )
+        ],
+    )
     expectations.extend([
         FPGAExpectation(
             timestamp=3,
@@ -259,19 +244,20 @@ def build_sustained_uv_test() -> EngineeringTestCase:
     expectations = healthy_startup_expectations()
         
 
-    for timestamp in range(3, 7):
+    vectors = build_running_scenario(
+    final_timestamp=6
+    )
 
-        vectors.append(
-            FPGATestVector(
-                timestamp=timestamp,
-                reset=0,
-                start=0,
-                uv=1,
-                ov=0,
-                oc=0,
-                ot=0,
+    vectors = apply_fault_injections(
+        vectors=vectors,
+        injections=[
+            FaultInjection(
+                fault="undervoltage",
+                start_timestamp=3,
+                duration=4,
             )
-        )
+        ],
+    )
 
     expectations.extend([
         FPGAExpectation(
@@ -326,19 +312,20 @@ def build_overcurrent_test() -> EngineeringTestCase:
 
     expectations = healthy_startup_expectations()
 
-    for timestamp in range(3, 7):
+    vectors = build_running_scenario(
+    final_timestamp=6
+    )
 
-        vectors.append(
-            FPGATestVector(
-                timestamp=timestamp,
-                reset=0,
-                start=0,
-                uv=0,
-                ov=0,
-                oc=1,
-                ot=0,
+    vectors = apply_fault_injections(
+        vectors=vectors,
+        injections=[
+            FaultInjection(
+                fault="overcurrent",
+                start_timestamp=3,
+                duration=4,
             )
-        )
+        ],
+    )
 
     expectations.extend([
         FPGAExpectation(
@@ -393,20 +380,20 @@ def build_overtemperature_test() -> EngineeringTestCase:
 
     expectations = healthy_startup_expectations()
 
+    vectors = build_running_scenario(
+    final_timestamp=6
+    )
 
-    for timestamp in range(3, 7):
-
-        vectors.append(
-            FPGATestVector(
-                timestamp=timestamp,
-                reset=0,
-                start=0,
-                uv=0,
-                ov=0,
-                oc=0,
-                ot=1,
+    vectors = apply_fault_injections(
+        vectors=vectors,
+        injections=[
+            FaultInjection(
+                fault="overtemperature",
+                start_timestamp=3,
+                duration=4,
             )
-        )
+        ],
+    )
 
     expectations.extend([
         FPGAExpectation(
@@ -462,19 +449,25 @@ def build_simultaneous_oc_ot_test() -> EngineeringTestCase:
     expectations = healthy_startup_expectations()
 
 
-    for timestamp in range(3, 7):
+    vectors = build_running_scenario(
+    final_timestamp=6
+    )
 
-        vectors.append(
-            FPGATestVector(
-                timestamp=timestamp,
-                reset=0,
-                start=0,
-                uv=0,
-                ov=0,
-                oc=1,
-                ot=1,
-            )
-        )
+    vectors = apply_fault_injections(
+        vectors=vectors,
+        injections=[
+            FaultInjection(
+                fault="overcurrent",
+                start_timestamp=3,
+                duration=4,
+            ),
+            FaultInjection(
+                fault="overtemperature",
+                start_timestamp=3,
+                duration=4,
+            ),
+        ],
+    )
 
     expectations.extend([
         FPGAExpectation(
@@ -693,6 +686,38 @@ def print_test_catalog(test_cases: list[EngineeringTestCase],) -> None:
         print(
             f"    {reason}"
         )
+
+def build_running_scenario(final_timestamp: int) -> list[FPGATestVector]:
+    if final_timestamp < 2:
+
+        raise ValueError(
+            "final_timestamp must allow "
+            "RESET, STARTUP, and RUNNING."
+        )
+
+
+    vectors = healthy_startup_vectors()
+
+
+    for timestamp in range(
+        3,
+        final_timestamp + 1,
+    ):
+
+        vectors.append(
+            FPGATestVector(
+                timestamp=timestamp,
+                reset=0,
+                start=0,
+                uv=0,
+                ov=0,
+                oc=0,
+                ot=0,
+            )
+        )
+    return vectors
+
+
 
 if __name__ == "__main__":
         
