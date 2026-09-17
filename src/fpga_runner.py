@@ -12,6 +12,15 @@ from fpga_test_cases import (
     EngineeringTestCase,
     build_engineering_test_cases,
 )
+from test_logging import (
+    TestRunLog,
+    CampaignSummary,
+    build_test_run_log,
+    save_test_run_log,
+    build_error_test_run_log,
+    build_campaign_summary,
+    save_campaign_summary,
+)
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
@@ -58,6 +67,14 @@ HDL_VERIFICATION_OUTPUT = (
 
 PYTHON_INTEGRATION_OUTPUT = (
     BUILD_DIR / "python_integration_sim"
+)
+
+TEST_LOG_DIR = (
+    BUILD_DIR / "test_logs"
+)
+
+CAMPAIGN_LOG_DIR = (
+    BUILD_DIR / "campaign_logs"
 )
 
 def run_command(command: list[str]) -> subprocess.CompletedProcess[str]:
@@ -186,8 +203,8 @@ def run_python_integration() -> str:
     )
 
 def run_engineering_test(
-    test_case: EngineeringTestCase,
-) -> bool:
+test_case: EngineeringTestCase,
+) -> TestRunLog:
 
     print("")
     print("========================================")
@@ -196,98 +213,207 @@ def run_engineering_test(
         f"{test_case.name}"
     )
     print("========================================")
+    print("")
 
-    test_case.validate()
+   
 
-    write_vectors(
-        list(test_case.vectors),
-        FPGA_INPUT_FILE,
-    )
+    try:
+        test_case.validate()
+        # -------------------------------------
+        # 1. Write this test's FPGA vectors
+        # -------------------------------------
 
-    run_python_integration()
+        write_vectors(
+            vectors=list(test_case.vectors),
+            output_path=FPGA_INPUT_FILE,
+        )
 
-    actual_results = read_FPGA_results(
-        FPGA_OUTPUT_FILE
-    )
+        # -------------------------------------
+        # 2. Run the FPGA simulation
+        # -------------------------------------
 
-    input_timestamps = [
-        vector.timestamp
-        for vector in test_case.vectors
-    ]
+        integration_output = (
+            run_python_integration()
+        )
 
-    validate_input_output_alignment(
-        input_timestamps,
-        actual_results,
-    )
+        if (
+            "PYTHON -> FPGA RESULT: PASS"
+            not in integration_output
+        ):
+            raise RuntimeError(
+                f"{test_case.test_id}: "
+                "Python-to-FPGA integration failed."
+            )
 
-    verification_results = verify_results(
-        expectations=list(
-            test_case.expectations
-        ),
-        actual_result=actual_results,
-    )
+        # -------------------------------------
+        # 3. Read the FPGA output
+        # -------------------------------------
 
-    print_verification_report(
-        verification_results
-    )
+        actual_results = (
+            read_FPGA_results(
+                FPGA_OUTPUT_FILE
+            )
+        )
 
-    return verification_passed(
-        verification_results
-    )
+        # -------------------------------------
+        # 4. Check input/output alignment
+        # -------------------------------------
+
+        input_timestamps = [
+            vector.timestamp
+            for vector in test_case.vectors
+        ]
+
+        validate_input_output_alignment(
+            input_timestamps=input_timestamps,
+            results=actual_results,
+        )
+
+        # -------------------------------------
+        # 5. Verify actual vs expected results
+        # -------------------------------------
+
+        verification_results = (
+            verify_results(
+                expectations=list(
+                    test_case.expectations
+                ),
+                actual_result=actual_results,
+            )
+        )
+
+        passed = verification_passed(
+            verification_results
+        )
+
+        print_verification_report(
+            verification_results
+        )
+
+        # -------------------------------------
+        # 6. Build the test log
+        # -------------------------------------
+
+        test_log = build_test_run_log(
+            test_case=test_case,
+            actual_results=actual_results,
+            verification_results=(
+                verification_results
+            ),
+            passed=passed,
+        )
+
+        # -------------------------------------
+        # 7. Save the test log
+        # -------------------------------------
+
+        log_path = save_test_run_log(
+            test_log=test_log,
+            output_directory=TEST_LOG_DIR,
+        )
+
+        print("")
+        print(
+            f"Test log saved: {log_path}"
+        )
+
+        # -------------------------------------
+        # 8. Return the log object
+        # -------------------------------------
+
+        return test_log
+
+    except Exception as error:
+
+        error_log = (
+            build_error_test_run_log(
+                test_case=test_case,
+                error_message=str(error),
+            )
+        )
+
+        log_path = save_test_run_log(
+            test_log=error_log,
+            output_directory=TEST_LOG_DIR,
+        )
+
+        print("")
+        print(
+            f"Failure log saved: "
+            f"{log_path}"
+        )
+
+        return error_log
 
 def run_test_campaign(
     test_cases: list[EngineeringTestCase],
-) -> bool:
-
-    passed_tests = 0
-    failed_tests = 0
-
-    for test_case in test_cases:
-
-        passed = run_engineering_test(
-            test_case
-        )
-
-        if passed:
-            passed_tests += 1
-        else:
-            failed_tests += 1
+) -> CampaignSummary:
 
     print("")
     print("========================================")
-    print(" FPGA ENGINEERING TEST CAMPAIGN")
+    print(" ENGINEERING TEST CAMPAIGN")
     print("========================================")
-    print(
-        f"Passed: {passed_tests}"
-    )
-    print(
-        f"Failed: {failed_tests}"
-    )
+    print("")
 
-    overall_passed = (
-        failed_tests == 0
-    )
+    test_logs = []
 
-    print(
-        "Overall: "
-        + (
-            "PASS"
-            if overall_passed
-            else "FAIL"
+    for test_case in test_cases:
+
+        test_log = run_engineering_test(
+            test_case
         )
+
+        test_logs.append(
+            test_log
+        )
+
+    summary = build_campaign_summary(
+        test_logs
+    )
+
+    summary_path = save_campaign_summary(
+        summary=summary,
+        output_directory=CAMPAIGN_LOG_DIR,
+    )
+
+    print("")
+    print("========================================")
+    print(" CAMPAIGN SUMMARY")
+    print("========================================")
+    print("")
+
+    print(
+        f"Total tests:  "
+        f"{summary.total_tests}"
+    )
+
+    print(
+        f"Passed tests: "
+        f"{summary.passed_tests}"
+    )
+
+    print(
+        f"Failed tests: "
+        f"{summary.failed_tests}"
+    )
+
+    print("")
+
+    print(
+        f"Overall result: "
+        f"{'PASS' if summary.overall_passed else 'FAIL'}"
+    )
+
+    print("")
+
+    print(
+        f"Campaign summary saved: "
+        f"{summary_path}"
     )
 
     print("========================================")
 
-    return overall_passed
-
-test_cases = (
-    build_engineering_test_cases()
-)
-
-campaign_passed = run_test_campaign(
-    test_cases
-)
+    return summary
 
 
 
@@ -407,6 +533,27 @@ def main() -> None:
         print(error)
         print("")
         print("INTEGRATION RESULT: FAIL")
+
+    print("")
+    print("Running engineering test campaign...")
+    print("")
+
+    test_cases = build_engineering_test_cases()
+
+    campaign_summary = run_test_campaign(
+        test_cases
+    )
+
+    print("")
+
+    if campaign_summary.overall_passed:
+        print(
+            "ENGINEERING CAMPAIGN RESULT: PASS"
+        )
+    else:
+        print(
+            "ENGINEERING CAMPAIGN RESULT: FAIL"
+        )
 
 
 if __name__ == "__main__":
