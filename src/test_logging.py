@@ -37,6 +37,8 @@ class TestRunLog:
 
     errors: tuple[str, ...]
 
+TestRunLog.__test__ = False
+
 def vector_to_dict(vector) -> dict:
     return asdict(vector)
 
