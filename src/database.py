@@ -8,6 +8,13 @@ BUILD_DIR = PROJECT_ROOT / "build"
 
 DATABASE_PATH = BUILD_DIR / "vetp.db"
 
+SQL_DIR = PROJECT_ROOT / "sql"
+
+SCHEMA_PATH = (
+    SQL_DIR
+    / "schema.sql"
+)
+
 
 def connect_database(
     database_path: Path = DATABASE_PATH,
@@ -22,139 +29,170 @@ def connect_database(
         database_path
     )
 
+    connection.execute(
+        "PRAGMA foreign_keys = ON;"
+    )
+
     return connection
-
-
-CREATE_TEST_RUNS_TABLE = '''
-CREATE TABLE IF NOT EXISTS test_runs (
-    run_id TEXT PRIMARY KEY,
-    timestamp_utc TEXT NOT NULL,
-    test_id TEXT NOT NULL,
-    test_name TEXT NOT NULL,
-    state_code INTEGER NOT NULL,
-    fault_code INTEGER NOT NULL,
-    alarm INTEGER NOT NULL,
-    shutdown INTEGER NOT NULL,
-    passed INTEGER NOT NULL
-);
-'''
 
 
 def create_tables(
     connection: sqlite3.Connection,
 ) -> None:
 
-    connection.execute(
-        CREATE_TEST_RUNS_TABLE
+    schema_sql = SCHEMA_PATH.read_text(
+        encoding="utf-8"
+    )
+
+    connection.executescript(
+        schema_sql
     )
 
     connection.commit()
 
 
-INSERT_TEST_RUN = '''
-INSERT INTO test_runs (
-    run_id,
-    timestamp_utc,
-    test_id,
-    test_name,
-    state_code,
-    fault_code,
-    alarm,
-    shutdown,
-    passed
-)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-'''
-
-
-def insert_test_run(
+def list_tables(
     connection: sqlite3.Connection,
-) -> None:
-
-    connection.execute(
-        INSERT_TEST_RUN,
-        (
-            "RUN-001",
-            "2026-09-16T17:00:00+00:00",
-            "TC-005",
-            "Overcurrent Shutdown",
-            3,
-            3,
-            1,
-            1,
-            1,
-        ),
-    )
-
-    connection.commit()
-
-
-def read_test_runs(
-    connection: sqlite3.Connection,
-) -> list[tuple]:
+) -> list[str]:
 
     cursor = connection.execute(
-        '''
-        SELECT
-            run_id,
-            test_id,
-            test_name,
-            state_code,
-            fault_code,
-            alarm,
-            shutdown,
-            passed
-        FROM test_runs
-        ORDER BY timestamp_utc;
-        '''
+        """
+        SELECT name
+        FROM sqlite_master
+        WHERE type = 'table'
+        ORDER BY name;
+        """
     )
 
-    return cursor.fetchall()
-
-
-def initialize_database(
-    database_path: Path = DATABASE_PATH,
-) -> None:
-
-    connection = connect_database(
-        database_path
-    )
-
-    try:
-        create_tables(
-            connection
-        )
-
-    finally:
-        connection.close()
+    return [
+        row[0]
+        for row
+        in cursor.fetchall()
+    ]
 
 
 if __name__ == "__main__":
 
-    initialize_database()
-
-   
     connection = connect_database()
 
     try:
 
-        rows = read_test_runs(
+        create_tables(
             connection
         )
 
-        print(
-            f"Database ready: "
-            f"{DATABASE_PATH}"
+        connection.execute(
+            """
+            INSERT INTO devices (
+                device_id,
+                device_name,
+                created_at_utc
+            )
+            VALUES (?, ?, ?);
+            """,
+            (
+                "PWR-001",
+                "Power Controller",
+                "2026-09-16T20:00:00+00:00",
+            ),
         )
 
-        print(
-            f"Stored test runs: "
-            f"{len(rows)}"
+       
+        connection.execute(
+            """
+            INSERT INTO test_cases (
+                test_id,
+                test_name,
+                description
+            )
+            VALUES (?, ?, ?);
+            """,
+            (
+                "TC-005",
+                "Overcurrent Shutdown",
+                (
+                    "Verify sustained overcurrent "
+                    "causes FAULT and shutdown."
+                ),
+            ),
         )
 
-        for row in rows:
-                    print(row)
+       
+
+        connection.execute(
+            """
+            INSERT INTO test_runs (
+                run_id,
+                device_id,
+                test_id,
+                started_at_utc,
+                passed,
+                error_message
+            )
+            VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            (
+                "RUN-DEMO-001",
+                "PWR-001",
+                "TC-005",
+                "2026-09-16T20:05:00+00:00",
+                1,
+                None,
+            ),
+        )
+
+        
+
+        connection.execute(
+            """
+            INSERT INTO fpga_outputs (
+                run_id,
+                timestamp,
+                state_code,
+                fault_code,
+                alarm,
+                shutdown
+            )
+            VALUES (?, ?, ?, ?, ?, ?);
+            """,
+            (
+                "RUN-DEMO-001",
+                6,
+                3,
+                3,
+                1,
+                1,
+            ),
+        )
+
+        
+        connection.execute(
+            """
+            INSERT INTO fault_events (
+                run_id,
+                fault_type,
+                start_timestamp,
+                duration
+            )
+            VALUES (?, ?, ?, ?);
+            """,
+            (
+                "RUN-DEMO-001",
+                "overcurrent",
+                3,
+                4,
+            ),
+        )
+
+
+        connection.commit()
+
+       
+        for table_name in list_tables(
+            connection
+        ):
+            print(table_name)
 
     finally:
-        connection.close()
 
+        connection.close()
