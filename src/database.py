@@ -15,7 +15,6 @@ SCHEMA_PATH = (
     / "schema.sql"
 )
 
-
 def connect_database(
     database_path: Path = DATABASE_PATH,
 ) -> sqlite3.Connection:
@@ -28,6 +27,8 @@ def connect_database(
     connection = sqlite3.connect(
         database_path
     )
+
+    connection.row_factory = sqlite3.Row
 
     connection.execute(
         "PRAGMA foreign_keys = ON;"
