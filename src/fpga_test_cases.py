@@ -11,6 +11,7 @@ class EngineeringTestCase:
     description: str
     vectors: tuple[FPGATestVector,...]
     expectations: tuple[FPGAExpectation,...]
+    fault_injections: tuple[FaultInjection, ...] = ()
 
     def validate(self) -> None:
 
@@ -188,16 +189,20 @@ def build_brief_uv_test() -> EngineeringTestCase:
     final_timestamp=5
 )
 
-    vectors = apply_fault_injections(
-        vectors=vectors,
-        injections=[
-            FaultInjection(
-                fault="undervoltage",
-                start_timestamp=3,
-                duration=1,
-            )
-        ],
+
+    injections=(
+        FaultInjection(
+            fault="undervoltage",
+            start_timestamp=3,
+            duration=1,
+        ),
     )
+
+
+    vectors = apply_fault_injections(
+            vectors=vectors,
+            injections=list(injections),
+        )
     expectations.extend([
         FPGAExpectation(
             timestamp=3,
@@ -231,6 +236,7 @@ def build_brief_uv_test() -> EngineeringTestCase:
         ),
         vectors=tuple(vectors),
         expectations=tuple(expectations),
+        fault_injections=injections,
     )
 
     test_case.validate()
@@ -248,16 +254,17 @@ def build_sustained_uv_test() -> EngineeringTestCase:
     final_timestamp=6
     )
 
+    injections=(
+        FaultInjection(
+            fault="undervoltage",
+            start_timestamp=3,
+            duration=4,
+        ),
+    )   
     vectors = apply_fault_injections(
-        vectors=vectors,
-        injections=[
-            FaultInjection(
-                fault="undervoltage",
-                start_timestamp=3,
-                duration=4,
-            )
-        ],
-    )
+            vectors=vectors,
+            injections=list(injections),
+        )
 
     expectations.extend([
         FPGAExpectation(
@@ -300,6 +307,7 @@ def build_sustained_uv_test() -> EngineeringTestCase:
         ),
         vectors=tuple(vectors),
         expectations=tuple(expectations),
+        fault_injections=injections,
     )
 
     test_case.validate()
@@ -316,15 +324,17 @@ def build_overcurrent_test() -> EngineeringTestCase:
     final_timestamp=6
     )
 
+    injections = (
+        FaultInjection(
+            fault="overcurrent",
+            start_timestamp=3,
+            duration=4,
+        ),
+    )   
+
     vectors = apply_fault_injections(
         vectors=vectors,
-        injections=[
-            FaultInjection(
-                fault="overcurrent",
-                start_timestamp=3,
-                duration=4,
-            )
-        ],
+        injections=list(injections),
     )
 
     expectations.extend([
@@ -368,6 +378,7 @@ def build_overcurrent_test() -> EngineeringTestCase:
         ),
         vectors=tuple(vectors),
         expectations=tuple(expectations),
+        fault_injections=injections,
     )
 
     test_case.validate()
@@ -384,16 +395,18 @@ def build_overtemperature_test() -> EngineeringTestCase:
     final_timestamp=6
     )
 
+    injections = (
+        FaultInjection(
+            fault="overtemperature",
+            start_timestamp=3,
+            duration=4,
+        ),
+    )   
+
     vectors = apply_fault_injections(
-        vectors=vectors,
-        injections=[
-            FaultInjection(
-                fault="overtemperature",
-                start_timestamp=3,
-                duration=4,
-            )
-        ],
-    )
+            vectors=vectors,
+            injections=list(injections),
+        )
 
     expectations.extend([
         FPGAExpectation(
@@ -436,6 +449,7 @@ def build_overtemperature_test() -> EngineeringTestCase:
         ),
         vectors=tuple(vectors),
         expectations=tuple(expectations),
+        fault_injections=injections,
     )
 
     test_case.validate()
@@ -453,21 +467,24 @@ def build_simultaneous_oc_ot_test() -> EngineeringTestCase:
     final_timestamp=6
     )
 
+    
+    injections=(
+        FaultInjection(
+            fault="overcurrent",
+            start_timestamp=3,
+            duration=4,
+        ),
+        FaultInjection(
+            fault="overtemperature",
+            start_timestamp=3,
+            duration=4,
+        ),
+    )   
+
     vectors = apply_fault_injections(
-        vectors=vectors,
-        injections=[
-            FaultInjection(
-                fault="overcurrent",
-                start_timestamp=3,
-                duration=4,
-            ),
-            FaultInjection(
-                fault="overtemperature",
-                start_timestamp=3,
-                duration=4,
-            ),
-        ],
-    )
+            vectors=vectors,
+            injections=list(injections),
+        )
 
     expectations.extend([
         FPGAExpectation(
@@ -511,6 +528,7 @@ def build_simultaneous_oc_ot_test() -> EngineeringTestCase:
         ),
         vectors=tuple(vectors),
         expectations=tuple(expectations),
+        fault_injections=injections,
     )
 
     test_case.validate()
