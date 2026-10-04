@@ -3,14 +3,29 @@ from database import (
     create_tables,
 )
 
-from database_integration import save_completed_run
+from database_integration import (
+    save_completed_run,
+)
+
+from database_queries import (
+    get_fault_events_for_run,
+)
 
 from fpga_runner import (
     run_engineering_test,
     CAMPAIGN_LOG_DIR,
 )
 
-from fpga_test_cases import build_engineering_test_cases
+from fpga_test_cases import (
+    build_engineering_test_cases,
+)
+
+from report_generator import (
+    build_test_report,
+    save_test_report,
+    build_campaign_report,
+    save_campaign_report,
+)
 
 from test_logging import (
     build_campaign_summary,
@@ -18,11 +33,21 @@ from test_logging import (
 )
 
 
-def run_persistent_campaign(database_path=None):
+def run_persistent_campaign(
+    database_path=None,
+):
+
+    # --------------------------------------------------
+    # Build the engineering test cases
+    # --------------------------------------------------
 
     cases = build_engineering_test_cases()
 
     logs = []
+
+    # --------------------------------------------------
+    # Connect to SQLite
+    # --------------------------------------------------
 
     connection = (
         connect_database()
@@ -32,14 +57,30 @@ def run_persistent_campaign(database_path=None):
 
     try:
 
+        # --------------------------------------------------
+        # Individual test transactions created
+        # before beginning the database tables. 
+        # 
+        # --------------------------------------------------
+
         create_tables(connection)
+
+        # --------------------------------------------------
+        # Run each engineering test
+        # --------------------------------------------------
 
         for case in cases:
 
+            log = run_engineering_test(
+                case
+            )
 
-            log = run_engineering_test(case)
+            # --------------------------------------------------
+            # Save SQLite evidence
+            # --------------------------------------------------
 
             try:
+
                 save_completed_run(
                     connection,
                     case,
@@ -49,6 +90,7 @@ def run_persistent_campaign(database_path=None):
                 connection.commit()
 
             except Exception:
+
                 connection.rollback()
 
                 print(
@@ -58,35 +100,101 @@ def run_persistent_campaign(database_path=None):
 
                 raise
 
-            logs.append(log)
+            # --------------------------------------------------
+            # Generate the individual Markdown report
+            # after successful SQLite persistence.
+            # --------------------------------------------------
+
+            try:
+
+                fault_events = get_fault_events_for_run(
+                    connection,
+                    log.run_id,
+                )
+
+                report_text = build_test_report(
+                    log,
+                    fault_events,
+                )
+
+                report_path = save_test_report(
+                    log,
+                    report_text,
+                )
+
+                print(
+                    f"Report: {report_path}"
+                )
+
+            except Exception as error:
+
+                print(
+                    f"Report generation failed for "
+                    f"{log.run_id}: {error}"
+                )
+
+
+            logs.append(
+                log
+            )
 
             print(
                 f"Saved SQLite run: {log.run_id} | "
                 f"{'PASS' if log.passed else 'FAIL'}"
             )
 
-        summary = build_campaign_summary(logs)
+        campaign_summary = build_campaign_summary(
+            logs
+        )
 
-        path = save_campaign_summary(
-            summary,
+        summary_path = save_campaign_summary(
+            campaign_summary,
             CAMPAIGN_LOG_DIR,
         )
 
         print(
-            f"Campaign: {summary.total_tests} total, "
-            f"{summary.passed_tests} passed, "
-            f"{summary.failed_tests} failed"
+            f"Campaign: "
+            f"{campaign_summary.total_tests} total, "
+            f"{campaign_summary.passed_tests} passed, "
+            f"{campaign_summary.failed_tests} failed"
         )
 
         print(
-            f"JSON campaign summary: {path}"
+            f"JSON campaign summary: {summary_path}"
         )
 
-        return summary
+        # --------------------------------------------------
+        # Generate the Markdown campaign report
+        # --------------------------------------------------
+
+        try:
+
+            campaign_report = build_campaign_report(
+                campaign_summary
+            )
+
+            campaign_path = save_campaign_report(
+                campaign_summary,
+                campaign_report,
+            )
+
+            print(
+                f"Campaign report: {campaign_path}"
+            )
+
+        except Exception as error:
+
+            print(
+                f"Campaign report generation failed: "
+                f"{error}"
+            )
+
+        return campaign_summary
 
     finally:
         connection.close()
 
 
 if __name__ == "__main__":
+
     run_persistent_campaign()
