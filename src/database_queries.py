@@ -32,7 +32,8 @@ def get_failed_test_runs(
             started_at_utc,
             error_message
         FROM test_runs
-        WHERE passed = 0;
+        WHERE passed = 0
+        ORDER BY started_at_utc DESC;
         """
     )
 
