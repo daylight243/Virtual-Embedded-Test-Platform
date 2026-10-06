@@ -38,40 +38,22 @@ from database_queries import (
     get_run_details,
 )
 
+from dashboard_logic import (
+    state_name,
+    fault_name,
+    verification_name,
+    find_state_transitions,
+    find_fault_transitions,
+)
 
-STATE_NAMES = {
-    0: "IDLE",
-    1: "STARTUP",
-    2: "RUNNING",
-    3: "FAULT",
-    4: "RECOVERY",
-}
 
+def get_report_path(
+    run_id: str,
+) -> Path:
 
-FAULT_NAMES = {
-    0: "NONE",
-    1: "UV",
-    2: "OV",
-    3: "OC",
-    4: "OT",
-}
-
-def state_name(
-    state_code: int,
-) -> str:
-
-    return STATE_NAMES.get(
-        state_code,
-        f"UNKNOWN ({state_code})",
-    )
-
-def fault_name(
-    fault_code: int,
-) -> str:
-
-    return FAULT_NAMES.get(
-        fault_code,
-        f"UNKNOWN ({fault_code})",
+    return (
+        REPORTS_DIR
+        / f"test_{run_id}.md"
     )
 
 st.set_page_config(
@@ -94,8 +76,16 @@ st.write(
 )
 
 
+st.sidebar.title(
+    "VETP"
+)
+
+st.sidebar.caption(
+    "Engineering Workbench"
+)
+
 page = st.sidebar.radio(
-    "Navigate",
+    "Workspace",
     (
         "Overview",
         "Test History",
@@ -104,199 +94,410 @@ page = st.sidebar.radio(
     ),
 )
 
-connection = connect_database()
+st.sidebar.divider()
 
-if page == "Overview":
-    st.header("Overview")
-    
+st.sidebar.caption(
+    "Version 1 · SQLite"
+)
+
+try:
+    connection = connect_database()
+
+except Exception as exc:
+    st.error(
+        "Unable to open the VETP "
+        "SQLite database."
+    )
+
+    st.exception(exc)
+
+    st.stop()
+
+def render_overview(connection):
+    st.title(
+    "Virtual Embedded Test Platform"
+    )
+
+    st.caption(
+    "Protection Controller · "
+    "Engineering Workbench"
+    )
+
+    st.subheader(
+    "Test System Overview"
+    )
+
     total_runs = count_test_runs(
     connection
     )
-    st.metric(
-    "Total Test Runs",
-    total_runs,
-    )
+
     passed_runs = count_runs_by_result(
-    connection,
-    True,
+        connection,
+        True,
     )
+
     failed_runs = count_runs_by_result(
-    connection,
-    False,
+        connection,
+        False,
     )
-    col1, col2, col3 = st.columns(3)
+
+    pass_rate = calculate_pass_rate(
+        connection
+    )
+
+    history = get_complete_test_history(
+    connection
+    )
+
+    if history:
+        latest_run = history[0]
+
+        st.caption(
+            "Latest stored test: "
+            f"{latest_run['started_at_utc']}"
+        )
+
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
+
         st.metric(
-            "Total Runs",
+            "Test Runs",
             total_runs,
         )
 
+
     with col2:
+
         st.metric(
             "Passed",
             passed_runs,
         )
 
+
     with col3:
+
         st.metric(
             "Failed",
             failed_runs,
         )
 
-    pass_rate = calculate_pass_rate(
-    connection
-    )
-    st.metric(
-    "Pass Rate",
-    f"{pass_rate:.1f}%",
-    )
-    history = get_complete_test_history(
-    connection
-    )
+
+    with col4:
+
+        st.metric(
+            "Pass Rate",
+            f"{pass_rate:.1f}%",
+        )
+    if total_runs == 0:
+
+        st.info(
+            "No test history is stored yet."
+        )
+
+    elif failed_runs == 0:
+
+        st.success(
+            "Stored verification history "
+            "contains no failed runs."
+        )
+
+    else:
+
+        st.warning(
+            f"{failed_runs} failed verification "
+            f"run(s) require review."
+        )
+
     recent_runs = history[:5]
+    recent_rows = []
+
     for run in recent_runs:
 
-        result = (
-            "PASS"
-            if run["passed"]
-            else "FAIL"
+        recent_rows.append(
+            {
+                "Test":
+                    run["test_id"],
+
+                "Name":
+                    run["test_name"],
+
+                "Started":
+                    run["started_at_utc"],
+
+                "Result":
+                    (
+                        "PASS"
+                        if run["passed"]
+                        else "FAIL"
+                    ),
+            }
         )
 
-        st.write(
-            f"{run['test_id']} — "
-            f"{run['test_name']} — "
-            f"{result}"
-        )
+    st.subheader(
+    "Recent Activity"
+    )
 
+    st.dataframe(
+        recent_rows,
+        use_container_width=True,
+        hide_index=True,
+    )   
+
+    result_data = {
+    "Result": [
+        "PASS",
+        "FAIL",
+    ],
+
+    "Runs": [
+        passed_runs,
+        failed_runs,
+    ],
+    }
+
+    st.subheader(
+    "Verification Results"
+    )
+
+    st.bar_chart(
+        result_data,
+        x="Result",
+        y="Runs",
+    )
     
+def render_test_history(connection):
+    
+    st.header(
+        "Test History"
+    )
 
-elif page == "Test History":
-    st.header("Test History")
+    st.caption(
+        "Search and inspect persistent "
+        "engineering test records."
+    )
+
     history = get_complete_test_history(
     connection
     )
-    history_rows = [
-    dict(row)
-    for row in history
-    ]
-    st.dataframe(
-    history_rows,
-    use_container_width=True,
-    )
+
+    if not history:
+
+        st.info(
+            "No test runs are stored yet."
+        )
+
+        return
+
     test_ids = sorted(
     {
         row["test_id"]
         for row in history
     }
     )
+
     selected_test = st.selectbox(
-    "Filter by Test Case",
-    ["All"] + test_ids,
+        "Test Case",
+        ["All"] + test_ids,
     )
-    if selected_test == "All":
 
-        filtered_history = history
+    selected_result = st.selectbox(
+    "Verification Result",
+    (
+        "All",
+        "PASS",
+        "FAIL",
+    ),
+    )
 
-    else:
+    device_ids = sorted(
+    {
+        row["device_id"]
+        for row in history
+    }
+    )
 
-        filtered_history = [
+    selected_device = st.selectbox(
+        "Device",
+        ["All"] + device_ids,
+    )
+
+    filtered = list(history)
+
+    if selected_test != "All":
+
+        filtered = [
             row
-            for row in history
+            for row in filtered
             if row["test_id"]
             == selected_test
         ]
 
-    st.dataframe(
-    [
-        dict(row)
-        for row in filtered_history
-    ],
-    use_container_width=True,
-    )
+    if selected_device != "All":
 
-elif page == "Run Inspector":
-    st.header("Run Inspector")
-    history = get_complete_test_history(
-    connection
-    )
-    run_ids = [
-    row["run_id"]
-    for row in history
-    ]
-    if not run_ids:
+        filtered = [
+            row
+            for row in filtered
+            if row["device_id"]
+            == selected_device
+        ]
 
+    if selected_result == "PASS":
+
+        filtered = [
+            row
+            for row in filtered
+            if bool(row["passed"])
+        ]
+
+    elif selected_result == "FAIL":
+
+        filtered = [
+            row
+            for row in filtered
+            if not bool(row["passed"])
+        ]
+
+    if not filtered:
         st.info(
-            "No test runs are stored yet."
+            "No test runs match "
+            "the selected filters."
         )
 
     else:
+        history_rows = [
+            {
+                "Run ID":
+                    row["run_id"],
 
-        selected_run_id = st.selectbox(
-            "Select Run",
-            run_ids,
+                "Test":
+                    row["test_id"],
+
+                "Test Name":
+                    row["test_name"],
+
+                "Device":
+                    row["device_id"],
+
+                "Started":
+                    row["started_at_utc"],
+
+                "Result":
+                    verification_name(
+                        row["passed"]
+                    ),
+            }
+            for row in filtered
+        ]
+
+        st.dataframe(
+            history_rows,
+            use_container_width=True,
+            hide_index=True,
         )
 
-        run_details = get_run_details(
-        connection,
-        selected_run_id,
+def render_run_inspector(connection):
+    st.header("Run Inspector")
+
+    history = get_complete_test_history(
+        connection
+    )
+
+    if not history:
+        st.info(
+            "No test runs are stored yet. "
+            "Run an engineering test campaign "
+            "to populate the VETP database."
+        )
+        return
+
+
+    run_lookup = {}
+
+    for run in history:
+
+        label = (
+            f"{run['test_id']} · "
+            f"{run['test_name']} · "
+            f"{verification_name(run['passed'])} · "
+            f"{run['started_at_utc']}"
         )
 
-        if run_details is None:
+        run_lookup[label] = (
+            run["run_id"]
+        )
 
-            st.error(
-                "The selected run could not be found."
-            )
+    selected_label = st.selectbox(
+    "Select Test Run",
+    list(run_lookup.keys()),
+    )
 
-        else:
+    selected_run_id = (
+        run_lookup[selected_label]
+    )
 
-            st.subheader(
-                run_details["test_name"]
-            )
+    run_details = get_run_details(
+    connection,
+    selected_run_id,
+    )
 
-            st.write(
-                f"Run ID: "
-                f"{run_details['run_id']}"
-            )
+    col1, col2, col3, col4 = st.columns(4)
 
-            st.write(
-                f"Device: "
-                f"{run_details['device_name']}"
-            )
+    with col1:
 
-            st.write(
-                f"Test ID: "
-                f"{run_details['test_id']}"
-            )
+        st.metric(
+            "Test",
+            run_details["test_id"],
+        )
 
-            st.write(
-                f"Started: "
-                f"{run_details['started_at_utc']}"
-            )
-        if run_details["passed"]:
 
-            st.success(
-                "Engineering Verification: PASS"
-            )
+    with col2:
 
-        else:
+        st.metric(
+            "Device",
+            run_details["device_id"],
+        )
 
-            st.error(
-                "Engineering Verification: FAIL"
-            )
+
+    with col3:
+
+        st.metric(
+            "Result",
+            verification_name(
+                run_details["passed"]
+            ),
+        )
+
+
+    with col4:
+
+        st.metric(
+            "Started",
+            run_details[
+                "started_at_utc"
+            ],
+        )
+
+    st.subheader(
+    run_details["test_name"]
+    )
+
+    st.write(
+        run_details["description"]
+    )
 
     outputs = get_fpga_outputs_for_run(
     connection,
     selected_run_id,
     )
 
-    output_rows = []
+    timeline = []
 
     for output in outputs:
 
-        output_rows.append(
+        timeline.append(
             {
-                "Timestamp":
+                "Time":
                     output["timestamp"],
 
                 "State":
@@ -316,130 +517,270 @@ elif page == "Run Inspector":
                     output["fault_code"],
 
                 "Alarm":
-                    bool(output["alarm"]),
+                    (
+                        "ON"
+                        if output["alarm"]
+                        else "OFF"
+                    ),
 
                 "Shutdown":
-                    bool(output["shutdown"]),
+                    (
+                        "ON"
+                        if output["shutdown"]
+                        else "OFF"
+                    ),
             }
         )
     st.subheader(
-    "FPGA Output Timeline"
+    "FPGA Timeline"
     )
 
-    st.dataframe(
-        output_rows,
-        use_container_width=True,
-    )
+    if not timeline:
 
-    fault_events = get_fault_events_for_run(
-    connection,
-    selected_run_id,
+        st.warning(
+            "No FPGA output samples "
+            "were recorded for this run."
+        )
+
+    else:
+
+        st.dataframe(
+            timeline,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+    transitions = find_state_transitions(
+    outputs
     )
 
     st.subheader(
-    "Fault Injection Events"
+    "State Transitions"
     )
 
-    if not fault_events:
+    st.dataframe(
+        transitions,
+        use_container_width=True,
+        hide_index=True,
+    )
 
+    fault_transitions = find_fault_transitions(
+        outputs
+    )
+
+    st.subheader(
+        "Fault-Code Transitions"
+    )
+
+    if not fault_transitions:
         st.info(
-            "No recorded fault injections "
-            "for this run."
+            "No FPGA fault-code samples "
+            "were recorded for this run."
         )
     else:
         st.dataframe(
-        [
-            dict(event)
-            for event in fault_events
-        ],
-        use_container_width=True,
+            fault_transitions,
+            use_container_width=True,
+            hide_index=True,
         )
 
-    report_path = (
-    REPORTS_DIR
-    / f"test_{selected_run_id}.md"
+    fault_events = (
+    get_fault_events_for_run(
+        connection,
+        selected_run_id,
+    )
     )
 
+    st.subheader(
+    "Injected Fault Stimuli"
+    )
+    if not fault_events:
+        st.info(
+        "No recorded fault injections "
+        "for this run."
+        ) 
+
+    else:
+        st.dataframe(
+            [
+                {
+                    "Fault":
+                        event["fault_type"],
+
+                    "Start":
+                        event[
+                            "start_timestamp"
+                        ],
+
+                    "Duration":
+                        event["duration"],
+                }
+                for event in fault_events
+            ],
+            use_container_width=True,
+            hide_index=True,
+        ) 
+
+    report_path = get_report_path(
+    selected_run_id
+    )
     if report_path.exists():
-        st.success(
-        "Engineering report available."
+        report_text = (
+            report_path.read_text(
+                encoding="utf-8"
+            )
+        )
+        st.download_button(
+        label="Download Engineering Report",
+        data=report_text,
+        file_name=report_path.name,
+        mime="text/markdown",
+        )
+
+    else:
+        st.caption(
+            "No generated engineering report "
+            "was found for this run."
+        )
+
+
+
+def render_analysis(connection):
+        st.header(
+            "Engineering Analysis"
+        )
+
+        st.caption(
+            "Aggregate views of stored "
+            "VETP test history."
+        )
+        test_counts = count_runs_by_test_case(
+        connection
+        )
+
+        test_count_rows = [
+        {
+            "Test ID":
+                row["test_id"],
+
+            "Test Name":
+                row["test_name"],
+
+            "Executions":
+                row["run_count"],
+        }
+        for row in test_counts
+        ]
+
+        st.subheader(
+            "Test Execution Counts"
+        )
+
+        st.dataframe(
+            test_count_rows,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        fault_counts = count_faults_by_type(
+        connection
+        )
+        fault_rows = [
+        {
+            "Fault Type":
+                row["fault_type"],
+
+            "Injected Events":
+                row["event_count"],
+        }
+        for row in fault_counts
+        ]
+
+        st.subheader(
+        "Injected Fault Counts"
+        )
+
+        st.dataframe(
+            fault_rows,
+            use_container_width=True,
+            hide_index=True,
+        )
+
+        failures = get_failed_test_runs(
+                connection
+        )
+
+        st.subheader(
+            "Recent Verification Failures"
+        )
+
+        if not failures:
+            st.success(
+                "No failed verification runs "
+                "are currently stored."
+            )
+
+        else:
+            failure_rows = [
+                {
+                    "Run ID":
+                        row["run_id"],
+
+                    "Test":
+                        row["test_id"],
+
+                    "Started":
+                        row["started_at_utc"],
+
+                    "Error":
+                        row["error_message"]
+                        or "",
+                }
+                for row in failures[:10]
+            ]
+
+            st.dataframe(
+                failure_rows,
+                use_container_width=True,
+                hide_index=True,
+            )
+        st.subheader(
+        "Electrical Measurement Trends"
+        )
+
+        st.info(
+            "Analog measurement history is "
+            "not yet persisted in the Version 1 "
+            "SQLite model. Trend plots will be "
+            "enabled when genuine measurement "
+            "samples are connected to the "
+            "persistent test pipeline."
+        )
+
+if page == "Overview":
+    
+    render_overview(
+        connection
+    )
+    
+
+elif page == "Test History":
+    
+    render_test_history(
+        connection
+    )
+
+elif page == "Run Inspector":
+    
+    render_run_inspector(
+            connection
         )
 
 elif page == "Analysis":
-    st.header("Analysis")
-    st.header(
-    "Engineering Analysis"
-    )
-    fault_counts = count_faults_by_type(
-    connection
-    )
-    st.subheader(
-    "Recorded Fault Events"
-    )
-    fault_count_rows = [
-    {
-        "Fault Type": row["fault_type"],
-        "Event Count": row["event_count"],
-    }
-    for row in fault_counts
-    ]
-    st.dataframe(
-    fault_count_rows,
-    use_container_width=True,
-    )
-    test_counts = count_runs_by_test_case(
-    connection
-    )
-    st.subheader(
-    "Executions by Test Case"
-    )
-
-    st.dataframe(
-        [
-            {
-                "Test ID": row["test_id"],
-                "Test Name": row["test_name"],
-                "Runs": row["run_count"],
-            }
-            for row in test_counts
-        ],
-        use_container_width=True,
-    )
-
-    failed_runs = get_failed_test_runs(
-    connection
-    )
-    st.subheader(
-    "Recent Verification Failures"
-    )
-    if not failed_runs:
-
-        st.success(
-            "No verification failures "
-            "are currently stored."
+    
+    render_analysis(
+            connection
         )
-    else:       
-        st.dataframe(
-        [
-            dict(row)
-            for row in failed_runs[:10]
-        ],
-        use_container_width=True,
-        )
-
-    st.subheader(
-    "Measurement Trends"
-    )
-
-    st.info(
-        "Measurement trend analysis will "
-        "be enabled when real electrical "
-        "measurement samples are connected "
-        "to the persistent test pipeline."
-    )
-
-
-
 
 if st.sidebar.button(
     "Refresh Data"
@@ -448,5 +789,14 @@ if st.sidebar.button(
 
 connection.close()
 
+
+
+
+
+    
+
+
+
+    
 
 
