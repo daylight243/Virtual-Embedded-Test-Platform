@@ -5,6 +5,7 @@ from database import (
 
 from database_integration import (
     save_completed_run,
+    DEVICE_ID,
 )
 
 from database_queries import (
@@ -31,6 +32,12 @@ from test_logging import (
     build_campaign_summary,
     save_campaign_summary,
 )
+
+from cloud_integration import (
+    build_cloud_run_summary,
+    publish_run_summary_locally,
+)
+
 
 
 def run_persistent_campaign(
@@ -100,6 +107,30 @@ def run_persistent_campaign(
 
                 raise
 
+
+            # --------------------------------------------------
+            # Prepare the cloud-ready payload locally
+            # --------------------------------------------------
+            cloud_summary = build_cloud_run_summary(
+                test_log=log,
+                device_id=DEVICE_ID,
+            )
+
+            publish_result = (
+                publish_run_summary_locally(
+                    cloud_summary
+                )
+            )
+
+            print(
+                f"Cloud publication: "
+                f"{publish_result.message}"
+            )
+
+            print(
+                f"Destination: "
+                f"{publish_result.destination}"
+            )
             # --------------------------------------------------
             # Generate the individual Markdown report
             # after successful SQLite persistence.
