@@ -35,7 +35,8 @@ from test_logging import (
 
 from cloud_integration import (
     build_cloud_run_summary,
-    publish_run_summary_locally,
+    load_cloud_config,
+    publish_run_summary,
 )
 
 
@@ -52,6 +53,17 @@ def run_persistent_campaign(
 
     logs = []
 
+    # -----------------------------------------------------
+    # Load cloud configuration
+    # -----------------------------------------------------
+
+    cloud_config = load_cloud_config()
+
+    print(
+        f"Cloud mode: {cloud_config.mode}"
+    )
+
+
     # --------------------------------------------------
     # Connect to SQLite
     # --------------------------------------------------
@@ -66,8 +78,7 @@ def run_persistent_campaign(
 
         # --------------------------------------------------
         # Individual test transactions created
-        # before beginning the database tables. 
-        # 
+        # before beginning the database tables.  
         # --------------------------------------------------
 
         create_tables(connection)
@@ -106,31 +117,7 @@ def run_persistent_campaign(
                 )
 
                 raise
-
-
-            # --------------------------------------------------
-            # Prepare the cloud-ready payload locally
-            # --------------------------------------------------
-            cloud_summary = build_cloud_run_summary(
-                test_log=log,
-                device_id=DEVICE_ID,
-            )
-
-            publish_result = (
-                publish_run_summary_locally(
-                    cloud_summary
-                )
-            )
-
-            print(
-                f"Cloud publication: "
-                f"{publish_result.message}"
-            )
-
-            print(
-                f"Destination: "
-                f"{publish_result.destination}"
-            )
+            
             # --------------------------------------------------
             # Generate the individual Markdown report
             # after successful SQLite persistence.
@@ -164,7 +151,69 @@ def run_persistent_campaign(
                     f"{log.run_id}: {error}"
                 )
 
+            # ---------------------------------------------
+            # Publish selected engineering results
+            # ---------------------------------------------
 
+            try:
+
+                cloud_summary = (
+                    build_cloud_run_summary(
+                        test_log=log,
+                        device_id=DEVICE_ID,
+                    )
+                )
+
+                publish_result = (
+                    publish_run_summary(
+                        cloud_summary,
+                        cloud_config,
+                    )
+                )
+
+                print(
+                    "Cloud publication:"
+                )
+
+                print(
+                    f"  Run: "
+                    f"{publish_result.run_id}"
+                )
+
+                print(
+                    f"  Success: "
+                    f"{publish_result.success}"
+                )
+
+                print(
+                    f"  Destination: "
+                    f"{publish_result.destination}"
+                )
+
+                print(
+                    f"  Status: "
+                    f"{publish_result.status_code}"
+                )
+
+                print(
+                    f"  Message: "
+                    f"{publish_result.message}"
+                )
+
+            except Exception as error:
+
+                print(
+                    "Cloud publication failed for "
+                    f"{log.run_id}: {error}"
+                )
+
+                print(
+                    "Engineering verification "
+                    "result remains unchanged."
+                )
+            # ---------------------------------------------
+            # Preserve run in campaign collection
+            # ---------------------------------------------
             logs.append(
                 log
             )
@@ -173,7 +222,9 @@ def run_persistent_campaign(
                 f"Saved SQLite run: {log.run_id} | "
                 f"{'PASS' if log.passed else 'FAIL'}"
             )
-
+        # -------------------------------------------------
+        # Build the campaign summary
+        # -------------------------------------------------
         campaign_summary = build_campaign_summary(
             logs
         )
@@ -225,7 +276,9 @@ def run_persistent_campaign(
     finally:
         connection.close()
 
-
+# =========================================================
+# Program entry point
+# =========================================================
 if __name__ == "__main__":
 
     run_persistent_campaign()

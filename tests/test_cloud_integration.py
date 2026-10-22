@@ -8,6 +8,8 @@ from cloud_integration import (
     cloud_summary_to_json,
     load_cloud_config,
     validate_cloud_run_summary,
+    CloudConfig,
+    publish_run_summary,
 )
 
 from test_logging import TestRunLog
@@ -236,4 +238,144 @@ def test_cloud_api_key_from_environment(
         == expected_api_key
     )
 
-    
+def build_publish_test_summary() -> CloudRunSummary:
+    """
+    Controlled unit-test fixture.
+    Not a genuine engineering execution.
+    """
+    return CloudRunSummary(
+        schema_version="1.0",
+        run_id="UNIT-TEST-RUN-001",
+        device_id="PWR-001",
+        test_id="TC-005",
+        test_name="Overcurrent Shutdown",
+        started_at_utc="2026-10-20T00:00:00Z",
+        passed=True,
+    )
+
+
+def build_publish_test_config(
+    mode: str,
+    endpoint: str | None = None,
+) -> CloudConfig:
+
+    return CloudConfig(
+        mode=mode,
+        endpoint=endpoint,
+        api_key=None,
+        timeout_seconds=5.0,
+    )
+
+
+def test_local_publication_still_works(
+    monkeypatch,
+    tmp_path,
+):
+
+    import cloud_integration
+
+    monkeypatch.setattr(
+        cloud_integration,
+        "CLOUD_OUTBOX_DIR",
+        tmp_path / "cloud_outbox",
+    )
+
+    summary = build_publish_test_summary()
+
+    config = build_publish_test_config(
+        mode="local",
+    )
+
+    result = publish_run_summary(
+        summary,
+        config,
+    )
+
+    assert result.success is True
+    assert result.run_id == summary.run_id
+    assert result.status_code is None
+
+    output_path = (
+        tmp_path
+        / "cloud_outbox"
+        / "run_UNIT-TEST-RUN-001.json"
+    )
+
+    assert output_path.exists()
+
+    import json
+
+    saved_payload = json.loads(
+        output_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert saved_payload["run_id"] == summary.run_id
+    assert saved_payload["passed"] is True
+
+
+def test_unsupported_cloud_mode():
+
+    summary = build_publish_test_summary()
+
+    config = build_publish_test_config(
+        mode="something_else",
+    )
+
+    result = publish_run_summary(
+        summary,
+        config,
+    )
+
+    assert result.success is False
+    assert result.run_id == summary.run_id
+    assert result.status_code is None
+    assert "Unsupported cloud mode" in result.message
+
+
+def test_missing_api_endpoint():
+
+    summary = build_publish_test_summary()
+
+    config = build_publish_test_config(
+        mode="api",
+        endpoint=None,
+    )
+
+    result = publish_run_summary(
+        summary,
+        config,
+    )
+
+    assert result.success is False
+    assert result.run_id == summary.run_id
+    assert result.status_code is None
+    assert "not configured" in result.message
+
+
+def test_publication_preserves_run_identity(
+    monkeypatch,
+    tmp_path,
+):
+
+    import cloud_integration
+
+    monkeypatch.setattr(
+        cloud_integration,
+        "CLOUD_OUTBOX_DIR",
+        tmp_path / "cloud_outbox",
+    )
+
+    summary = build_publish_test_summary()
+
+    config = build_publish_test_config(
+        mode="local",
+    )
+
+    result = publish_run_summary(
+        summary,
+        config,
+    )
+
+    assert result.run_id == summary.run_id  
