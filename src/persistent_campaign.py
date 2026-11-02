@@ -39,7 +39,19 @@ from cloud_integration import (
     publish_run_summary,
 )
 
+from cloud_campaign import (
+    build_cloud_campaign_summary,
+    verify_campaign_against_database,
+    save_campaign_to_outbox,
+)
 
+from cloud_campaign_publisher import (
+    publish_campaign_http,
+)
+
+from cloud_integration import (
+    CloudPublishResult,
+)
 
 def run_persistent_campaign(
     database_path=None,
@@ -117,7 +129,7 @@ def run_persistent_campaign(
                 )
 
                 raise
-            
+
             # --------------------------------------------------
             # Generate the individual Markdown report
             # after successful SQLite persistence.
@@ -271,10 +283,95 @@ def run_persistent_campaign(
                 f"{error}"
             )
 
+        completed_logs = tuple(logs)
+
+        cloud_campaign = build_cloud_campaign_summary(
+            test_logs=completed_logs,
+            device_id=DEVICE_ID,
+        )
+
+        verify_campaign_against_database(
+            connection,
+            cloud_campaign,
+        )
+
+        campaign_outbox_path = save_campaign_to_outbox(
+            cloud_campaign
+        )
+
+        print()
+        print("Campaign cloud artifact:")
+        print(f"  Path: {campaign_outbox_path}")
+
+        if cloud_config.mode == "api":
+
+            try:
+                campaign_publish_result = publish_campaign_http(
+                    cloud_campaign,
+                    cloud_config,
+                )
+
+            except Exception as exc:
+                campaign_publish_result = CloudPublishResult(
+                    run_id=cloud_campaign.campaign_id,
+                    success=False,
+                    destination="",
+                    message=f"Publication error: {exc}",
+                    status_code=None,
+                )
+
+        elif cloud_config.mode == "local":
+
+            campaign_publish_result = CloudPublishResult(
+                run_id=cloud_campaign.campaign_id,
+                success=True,
+                destination=str(campaign_outbox_path),
+                message="Campaign prepared in local outbox.",
+                status_code=None,
+            )
+
+        else:
+
+            campaign_publish_result = CloudPublishResult(
+                run_id=cloud_campaign.campaign_id,
+                success=False,
+                destination="",
+                message=(
+                    f"Unsupported cloud mode: "
+                    f"{cloud_config.mode}"
+                ),
+                status_code=None,
+            )
+
+        print()
+        print("Campaign cloud publication:")
+        print(
+            f"  Campaign: "
+            f"{cloud_campaign.campaign_id}"
+        )
+        print(
+            f"  Success: "
+            f"{campaign_publish_result.success}"
+        )
+        print(
+            f"  Destination: "
+            f"{campaign_publish_result.destination}"
+        )
+        print(
+            f"  Status: "
+            f"{campaign_publish_result.status_code}"
+        )
+        print(
+            f"  Message: "
+            f"{campaign_publish_result.message}"
+        )
+
         return campaign_summary
 
     finally:
         connection.close()
+
+
 
 # =========================================================
 # Program entry point
@@ -282,3 +379,4 @@ def run_persistent_campaign(
 if __name__ == "__main__":
 
     run_persistent_campaign()
+
