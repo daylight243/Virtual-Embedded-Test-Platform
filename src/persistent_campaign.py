@@ -53,6 +53,12 @@ from cloud_integration import (
     CloudPublishResult,
 )
 
+from cloud_storage import (
+    load_storage_config,
+    upload_campaign_artifact,
+    verify_uploaded_campaign,
+)
+
 def run_persistent_campaign(
     database_path=None,
 ):
@@ -260,7 +266,7 @@ def run_persistent_campaign(
         # --------------------------------------------------
         # Generate the Markdown campaign report
         # --------------------------------------------------
-
+        
         try:
 
             campaign_report = build_campaign_report(
@@ -329,6 +335,30 @@ def run_persistent_campaign(
                 message="Campaign prepared in local outbox.",
                 status_code=None,
             )
+
+        elif cloud_config.mode == "s3":
+            try:
+                storage_config = load_storage_config()
+                
+                storage_result = upload_campaign_artifact(
+                    artifact_path=campaign_outbox_path,
+                    campaign_id=cloud_campaign.campaign_id,
+                    config=storage_config,
+                )
+                
+                print("S3 upload success:", storage_result.success)
+                print("S3 message:", storage_result.message)
+                
+                if storage_result.success:
+                    verified = verify_uploaded_campaign(
+                        artifact_path=campaign_outbox_path,
+                        campaign_id=cloud_campaign.campaign_id,
+                        config=storage_config,
+                    )
+                    print("Remote artifact verified:", verified)
+            
+            except Exception as exc:
+                print("S3 publication failed:", exc)
 
         else:
 
