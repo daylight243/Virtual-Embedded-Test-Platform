@@ -39,25 +39,9 @@ from cloud_integration import (
     publish_run_summary,
 )
 
-from cloud_campaign import (
-    build_cloud_campaign_summary,
-    verify_campaign_against_database,
-    save_campaign_to_outbox,
-)
+from cloud_workflow import publish_completed_campaign, publication_status
 
-from cloud_campaign_publisher import (
-    publish_campaign_http,
-)
-
-from cloud_integration import (
-    CloudPublishResult,
-)
-
-from cloud_storage import (
-    load_storage_config,
-    upload_campaign_artifact,
-    verify_uploaded_campaign,
-)
+from cloud_reciepts import save_publication_receipt
 
 def run_persistent_campaign(
     database_path=None,
@@ -288,112 +272,51 @@ def run_persistent_campaign(
                 f"Campaign report generation failed: "
                 f"{error}"
             )
-
+        
         completed_logs = tuple(logs)
 
-        cloud_campaign = build_cloud_campaign_summary(
+        workflow_result = publish_completed_campaign(
             test_logs=completed_logs,
             device_id=DEVICE_ID,
+            connection=connection,
+            config=cloud_config,
         )
 
-        verify_campaign_against_database(
-            connection,
-            cloud_campaign,
-        )
-
-        campaign_outbox_path = save_campaign_to_outbox(
-            cloud_campaign
+        receipt_path = save_publication_receipt(
+            workflow_result
         )
 
         print()
-        print("Campaign cloud artifact:")
-        print(f"  Path: {campaign_outbox_path}")
+        print("Final campaign cloud workflow:")
 
-        if cloud_config.mode == "api":
-
-            try:
-                campaign_publish_result = publish_campaign_http(
-                    cloud_campaign,
-                    cloud_config,
-                )
-
-            except Exception as exc:
-                campaign_publish_result = CloudPublishResult(
-                    run_id=cloud_campaign.campaign_id,
-                    success=False,
-                    destination="",
-                    message=f"Publication error: {exc}",
-                    status_code=None,
-                )
-
-        elif cloud_config.mode == "local":
-
-            campaign_publish_result = CloudPublishResult(
-                run_id=cloud_campaign.campaign_id,
-                success=True,
-                destination=str(campaign_outbox_path),
-                message="Campaign prepared in local outbox.",
-                status_code=None,
-            )
-
-        elif cloud_config.mode == "s3":
-            try:
-                storage_config = load_storage_config()
-                
-                storage_result = upload_campaign_artifact(
-                    artifact_path=campaign_outbox_path,
-                    campaign_id=cloud_campaign.campaign_id,
-                    config=storage_config,
-                )
-                
-                print("S3 upload success:", storage_result.success)
-                print("S3 message:", storage_result.message)
-                
-                if storage_result.success:
-                    verified = verify_uploaded_campaign(
-                        artifact_path=campaign_outbox_path,
-                        campaign_id=cloud_campaign.campaign_id,
-                        config=storage_config,
-                    )
-                    print("Remote artifact verified:", verified)
-            
-            except Exception as exc:
-                print("S3 publication failed:", exc)
-
-        else:
-
-            campaign_publish_result = CloudPublishResult(
-                run_id=cloud_campaign.campaign_id,
-                success=False,
-                destination="",
-                message=(
-                    f"Unsupported cloud mode: "
-                    f"{cloud_config.mode}"
-                ),
-                status_code=None,
-            )
-
-        print()
-        print("Campaign cloud publication:")
         print(
-            f"  Campaign: "
-            f"{cloud_campaign.campaign_id}"
+            "  Campaign:",
+            workflow_result.campaign_id
         )
+
         print(
-            f"  Success: "
-            f"{campaign_publish_result.success}"
+            "  Engineering PASS:",
+            workflow_result.engineering_passed
         )
+
         print(
-            f"  Destination: "
-            f"{campaign_publish_result.destination}"
+            "  Publication status:",
+            publication_status(workflow_result)
         )
+
         print(
-            f"  Status: "
-            f"{campaign_publish_result.status_code}"
+            "  Publication message:",
+            workflow_result.message
         )
+
         print(
-            f"  Message: "
-            f"{campaign_publish_result.message}"
+            "  Artifact:",
+            workflow_result.artifact_path
+        )
+
+        print(
+            "  Receipt:",
+            receipt_path
         )
 
         return campaign_summary
