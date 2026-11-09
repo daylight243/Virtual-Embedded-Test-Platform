@@ -1,9 +1,29 @@
+# Python virtual environments
+.venv/
 venv/
 
+# Python caches
 __pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
-*.pyc
-
+# Local environment and secrets
 .env
+.env.*
+!.env.example
 
-build/
+# AWS credential files, if copied locally
+.aws/
+
+# Generated VETP engineering artifacts
+/build/
+
+# Local editor settings
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db
