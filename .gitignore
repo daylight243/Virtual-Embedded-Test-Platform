@@ -16,9 +16,11 @@ __pycache__/
 
 # AWS credential files, if copied locally
 .aws/
+.streamlit/secrets.toml
 
 # Generated VETP engineering artifacts
 /build/
+*.vcd
 
 # Local editor settings
 .vscode/
@@ -27,3 +29,6 @@ __pycache__/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Raw demonstration recordings
+/recordings/
