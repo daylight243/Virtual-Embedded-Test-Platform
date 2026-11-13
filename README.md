@@ -156,7 +156,6 @@ Generated evidence should be treated separately from source code. Do not publish
 
 - [Complete-System Demonstration](docs/demo_full_system.md)
 - [Light-Cloud Demonstration Guide](docs/VETP_Light_Cloud_Demo_Guide.md)
-- [Demonstration Evidence Manifest](docs/vetp_demo_manifest.md)
 
 ## Scope and limitations
 
