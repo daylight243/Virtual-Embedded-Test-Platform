@@ -232,6 +232,22 @@ SQLite is the local evidence database. The dashboard uses Streamlit. The HTTP re
 
 Electrical measurement-history visualization and advanced cloud infrastructure are outside the current verified core workflow.
 
+### Local HTTP Receiver — Security Scope
+
+VETP includes an optional HTTP receiver for demonstrating the publication and inspection of engineering test evidence.
+
+The receiver is explicitly bound to `127.0.0.1:8000` and is intended for local development and demonstration only.
+
+- The receiver is not designed for public internet deployment.
+- Authentication and production-grade access controls are not implemented.
+- Requests undergo basic JSON and engineering-schema validation.
+- The receiver should not be exposed through public interfaces, port forwarding, or public tunnels.
+- The receiver is not required for the core Verilog simulation, Python verification, SQLite evidence storage, or Streamlit dashboard.
+
+Future versions may introduce stronger request validation, authentication, and secure remote deployment mechanisms.
+
+**Security boundary:** The local HTTP receiver is an educational integration component, not a production-ready API service.
+
 ## Project purpose
 
 VETP was developed as a hands-on engineering project for exploring digital protection logic, automated verification, persistent test evidence and integration between hardware simulation and software tools.
