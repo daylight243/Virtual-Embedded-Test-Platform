@@ -145,27 +145,20 @@ The VETP automated test suite and engineering campaign were executed successfull
 - **Python version:** [3.14.0]
 - **Icarus Verilog version:** [12.0]
 - **Test command:** `python -m pytest -q`
-- **Pytest result:** [76 passed, 0 failed, 0 skipped]
-- **Engineering campaign:** [8 passed, 0 failed]
-- **Last verified:** [11/23/2026]
+- **Pytest result:** 76 passed, 0 failed, 0 skipped
+- **Engineering campaign:** 8 passed, 0 failed
+- **Last verified:** 11/23/2026
 
-Engineering scenarios verified:
-
-TC-001: Normal Startup
-
-TC-002: Nominal Operation
-
-TC-003: Brief Undervoltage Transient
-
-TC-004: Sustained Undervoltage
-
-TC-005: Overcurrent Shutdown
-
-TC-006: Overtemperature Shutdown
-
-TC-007: Simultaneous Overcurrent and Overtemperature
-
-TC-008: Fault Reset and Recovery
+| Test ID | Engineering Scenario | Result |
+|---|---|---|
+| TC-001 | Normal Startup | PASS |
+| TC-002 | Nominal Operation | PASS |
+| TC-003 | Brief Undervoltage Transient | PASS |
+| TC-004 | Sustained Undervoltage | PASS |
+| TC-005 | Overcurrent Shutdown | PASS |
+| TC-006 | Overtemperature Shutdown | PASS |
+| TC-007 | Simultaneous OC and OT | PASS |
+| TC-008 | Fault Reset and Recovery | PASS |
 
 All eight engineering scenarios passed in the reported local execution.
 
