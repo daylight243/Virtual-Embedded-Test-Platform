@@ -1,6 +1,6 @@
 # Virtual Embedded Test Platform (VETP)
 
-**Builder Edition — Version 1 | Python · Verilog · SQLite · AWS · Streamlit**
+**Builder Edition — Version 1 | Python · Verilog · SQLite · Optional AWS Integration · Streamlit**
 
 The Virtual Embedded Test Platform (VETP) is a software-based engineering test environment for simulating, testing and investigating the behavior of a digital protection controller.
 
@@ -22,33 +22,48 @@ The VETP is an educational and portfolio engineering platform, not a certified h
 
 ## System architecture
 
-```text
+```
 Engineering Test Cases
-          |
-          v
+         |
+         v
 Python Test Runner
-          |
-          v
+         |
+         v
 Icarus Verilog Simulation
-          |
-          v
-Actual Controller Outputs
-          |
-          v
-Python Verification
-          |
-          v
-JSON Logs + SQLite + Reports
-          |
-          +----> Streamlit Dashboard
-          |
-          +----> Validated Campaign Summary
-                         |
-                         v
-                 Local / HTTP / S3
+         |
+         v
+Controller Outputs
+         |
+         v
+Expected vs. Actual Verification
+         |
+         v
+Persistent Test Evidence
+ (SQLite / JSON / Reports)
+         |
+         +----> Streamlit Dashboard
+         |
+         +----> Campaign Summary
+                    |
+                    v
+          Optional Publication
+           (Local / HTTP / S3)
 ```
 
 The core protection-controller states are IDLE, STARTUP, RUNNING, FAULT and RECOVERY. The test suite includes scenarios involving startup behavior and electrical fault conditions.
+
+## Repository Structure
+
+| Directory | Purpose |
+|---|---|
+| `hdl/` | Verilog protection-controller modules and testbenches |
+| `src/` | Python simulation orchestration, verification, and campaign execution |
+| `tests/` | Automated Python tests |
+| `dashboard/` | Streamlit dashboard |
+| `docs/` | Architecture diagrams, screenshots, and supporting documentation |
+| `build/` | Generated test artifacts, SQLite database, and reports |
+
+The `build/` directory contains generated evidence and is not required to understand the source-code architecture. It is not included.
 
 ## Technologies
 
@@ -110,6 +125,54 @@ python -m pytest -q
 
 Tests that execute Verilog simulations require working `iverilog` and `vvp` executables.
 
+### Verifying the local test environment
+
+From the **same PowerShell terminal** used to run pytest, check that the executables are discoverable:
+
+```powershell
+Get-Command iverilog
+Get-Command vvp
+iverilog -V
+vvp -V
+python -m pytest -q
+```
+
+### Local Verification Results
+
+The VETP automated test suite and engineering campaign were executed successfully in a local Windows development environment.
+
+- **Environment:** Windows / PowerShell
+- **Python version:** [3.14.0]
+- **Icarus Verilog version:** [12.0]
+- **Test command:** `python -m pytest -q`
+- **Pytest result:** [76 passed, 0 failed, 0 skipped]
+- **Engineering campaign:** [8 passed, 0 failed]
+- **Last verified:** [11/23/2026]
+
+Engineering scenarios verified:
+
+TC-001: Normal Startup
+
+TC-002: Nominal Operation
+
+TC-003: Brief Undervoltage Transient
+
+TC-004: Sustained Undervoltage
+
+TC-005: Overcurrent Shutdown
+
+TC-006: Overtemperature Shutdown
+
+TC-007: Simultaneous Overcurrent and Overtemperature
+
+TC-008: Fault Reset and Recovery
+
+All eight engineering scenarios passed in the reported local execution.
+
+Reproduction: Run python -m pytest -q followed by python .\src\persistent_campaign.py in local publication mode, using the installation instructions above.
+
+These results demonstrate successful execution in the documented local environment. 
+
 ## Run the engineering campaign
 
 Use local publication mode:
@@ -144,8 +207,6 @@ Use the local URL printed by Streamlit.
 
 The dashboard provides Overview, Test History, Run Inspector and Analysis workspaces.
 
-```
-
 ## Generated evidence
 
 The `build/` directory contains generated engineering artifacts, including the SQLite database, FPGA input/output files, JSON test logs, Markdown reports, campaign summaries and optional cloud publication artifacts.
@@ -154,8 +215,14 @@ Generated evidence should be treated separately from source code. Do not publish
 
 ## Documentation
 
-- [Complete-System Demonstration](docs/demo_full_system.mp4)
+- [System Architecture Diagram](docs/VETP_Architecture_Diagram.png)
+- [Dashboard Overview](docs/Dashboard_Overview1.png)
+- [Dashboard Test History](docs/Dashboard_Test_History.png)
+- [Dashboard Run Inspector](docs/Dashboard_Run_Inspector_1.png)
+- [Dashboard Analysis](docs/Dashboard_Analysis1.png)
 - [Light-Cloud Demonstration Guide](docs/VETP_Light_Cloud_Demo_Guide.md)
+
+A complete-system demonstration video is planned but is not included in this repository snapshot.
 
 ## Scope and limitations
 
